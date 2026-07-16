@@ -1,23 +1,23 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Star Wars Shooter</title>
+    <title>Star Wars Shooter — Tatooine</title>
     <script src="https://unpkg.com/babylonjs@5.0.0/babylon.js"></script>
     <script src="https://unpkg.com/babylonjs-loaders@5.0.0/babylonjs.loaders.min.js"></script>
     <style>
         body { margin: 0; background: #000; overflow: hidden; }
         canvas { display: block; width: 100vw; height: 100vh; }
-        #ui { position: absolute; top: 20px; left: 20px; color: #0f0; font-family: monospace; font-size: 16px; text-shadow: 0 0 8px #0f0; pointer-events: none; }
-        #crosshair { position: absolute; top: 50%; left: 50%; width: 4px; height: 4px; background: rgba(180, 255, 180, 0.8); border-radius: 50%; transform: translate(-50%, -50%); pointer-events: none; }
-        #heat-container { position: absolute; bottom: 40px; left: 50%; transform: translateX(-50%); width: 220px; height: 10px; border: 1px solid #0f0; background: rgba(0,0,0,0.5); pointer-events: none; }
-        #heat-bar { height: 100%; width: 0%; background: linear-gradient(90deg, #0f0, #ff0, #f00); transition: width 0.05s linear; }
+        #ui { position: absolute; top: 20px; left: 20px; color: #ffd9a0; font-family: monospace; font-size: 16px; text-shadow: 0 0 8px rgba(255,150,50,0.6); pointer-events: none; }
+        #crosshair { position: absolute; top: 50%; left: 50%; width: 4px; height: 4px; background: rgba(255, 240, 200, 0.85); border-radius: 50%; transform: translate(-50%, -50%); pointer-events: none; }
+        #heat-container { position: absolute; bottom: 40px; left: 50%; transform: translateX(-50%); width: 220px; height: 10px; border: 1px solid #ffd9a0; background: rgba(0,0,0,0.4); pointer-events: none; }
+        #heat-bar { height: 100%; width: 0%; background: linear-gradient(90deg, #ffb347, #ff7b00, #f00); transition: width 0.05s linear; }
         #overheat-msg { position: absolute; bottom: 60px; left: 50%; transform: translateX(-50%); color: #f00; font-family: monospace; font-size: 18px; text-shadow: 0 0 10px #f00; display: none; }
-        #lock-hint { position: absolute; top: 40%; left: 50%; transform: translate(-50%, -50%); color: #0f0; font-family: monospace; font-size: 22px; text-shadow: 0 0 10px #0f0; }
-        #gameover { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); display: none; flex-direction: column; align-items: center; justify-content: center; color: #f00; font-family: monospace; }
+        #lock-hint { position: absolute; top: 40%; left: 50%; transform: translate(-50%, -50%); color: #ffd9a0; font-family: monospace; font-size: 22px; text-shadow: 0 0 10px rgba(255,150,50,0.8); }
+        #gameover { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(20,8,0,0.88); display: none; flex-direction: column; align-items: center; justify-content: center; color: #f00; font-family: monospace; }
         #gameover h1 { font-size: 48px; text-shadow: 0 0 20px #f00; }
-        #gameover p { color: #0f0; font-size: 20px; }
-        #restart { background: #0f0; color: #000; border: none; padding: 12px 30px; font-family: monospace; font-size: 18px; cursor: pointer; margin-top: 20px; }
-        #start-hint { position: absolute; bottom: 30px; left: 50%; transform: translateX(-50%); color: #0f0; font-family: monospace; opacity: 0.7; text-align: center; }
+        #gameover p { color: #ffd9a0; font-size: 20px; }
+        #restart { background: #ffd9a0; color: #201000; border: none; padding: 12px 30px; font-family: monospace; font-size: 18px; cursor: pointer; margin-top: 20px; }
+        #start-hint { position: absolute; bottom: 30px; left: 50%; transform: translateX(-50%); color: #ffd9a0; font-family: monospace; opacity: 0.7; text-align: center; }
     </style>
 </head>
 <body>
@@ -29,7 +29,7 @@
     <div id="crosshair"></div>
     <div id="heat-container"><div id="heat-bar"></div></div>
     <div id="overheat-msg">OVERHEATED</div>
-    <div id="lock-hint">CLICK TO PLAY</div>
+    <div id="lock-hint">CLICK TO PLAY — JUNDLAND WASTES</div>
     <div id="start-hint">WASD move &bull; SHIFT sprint &bull; SPACE jump &bull; C crouch &bull; RIGHT-CLICK aim &bull; ESC free mouse</div>
     <div id="gameover">
         <h1>GAME OVER</h1>
@@ -41,16 +41,21 @@
         const canvas = document.getElementById('canvas');
         const engine = new BABYLON.Engine(canvas, true);
         const scene = new BABYLON.Scene(engine);
-        scene.clearColor = new BABYLON.Color3(0.01, 0.01, 0.03);
         scene.collisionsEnabled = true;
+
+        // ---------- TATOOINE ATMOSPHERE ----------
+        scene.clearColor = new BABYLON.Color3(0.93, 0.72, 0.52);
+        scene.fogMode = BABYLON.Scene.FOGMODE_EXP2;
+        scene.fogDensity = 0.007;
+        scene.fogColor = new BABYLON.Color3(0.93, 0.72, 0.52);
 
         // ---------- CAMERA ----------
         const BASE_FOV = 0.8, ADS_FOV = 0.45;
-        const BASE_SENS = 1200, ADS_SENS = 2800; // higher = less sensitive
+        const BASE_SENS = 1200, ADS_SENS = 2800;
         const STAND_H = 1.7, CROUCH_H = 0.9;
         const camera = new BABYLON.UniversalCamera('camera', new BABYLON.Vector3(0, STAND_H, -8), scene);
         camera.attachControl(canvas, true);
-        camera.speed = 0.35;
+        camera.speed = 0.65;
         camera.minZ = 0.05;
         camera.fov = BASE_FOV;
         camera.inertia = 0.5;
@@ -63,67 +68,193 @@
         // ---------- POINTER LOCK ----------
         const lockHint = document.getElementById('lock-hint');
         canvas.addEventListener('click', () => {
-            if (!document.pointerLockElement) {
-                canvas.requestPointerLock();
-            }
+            if (!document.pointerLockElement) canvas.requestPointerLock();
         });
         document.addEventListener('pointerlockchange', () => {
             lockHint.style.display = document.pointerLockElement ? 'none' : 'block';
         });
         canvas.addEventListener('contextmenu', e => e.preventDefault());
 
-        // ---------- LIGHTS ----------
+        // ---------- LIGHTS (twin-sun warm) ----------
         const hemi = new BABYLON.HemisphericLight('hemi', new BABYLON.Vector3(0, 1, 0), scene);
-        hemi.intensity = 0.8;
-        const dir = new BABYLON.DirectionalLight('dir', new BABYLON.Vector3(0, -1, 1), scene);
-        dir.intensity = 0.4;
+        hemi.intensity = 0.75;
+        hemi.diffuse = new BABYLON.Color3(1, 0.9, 0.75);
+        hemi.groundColor = new BABYLON.Color3(0.5, 0.35, 0.2);
+        const sun1Light = new BABYLON.DirectionalLight('sun1', new BABYLON.Vector3(-0.5, -1, 0.6), scene);
+        sun1Light.intensity = 0.55;
+        sun1Light.diffuse = new BABYLON.Color3(1, 0.85, 0.6);
 
-        // ---------- GROUND GRID ----------
-        const ground = BABYLON.MeshBuilder.CreateGround('ground', { width: 200, height: 200 }, scene);
-        const gridTex = new BABYLON.DynamicTexture('gridTex', 512, scene);
-        const gctx = gridTex.getContext();
-        gctx.fillStyle = '#0a0a12'; gctx.fillRect(0, 0, 512, 512);
-        gctx.strokeStyle = '#1a3a5c'; gctx.lineWidth = 2;
-        for (let i = 0; i <= 512; i += 64) {
-            gctx.beginPath(); gctx.moveTo(i, 0); gctx.lineTo(i, 512); gctx.stroke();
-            gctx.beginPath(); gctx.moveTo(0, i); gctx.lineTo(512, i); gctx.stroke();
+        // ---------- SAND GROUND ----------
+        const ground = BABYLON.MeshBuilder.CreateGround('ground', { width: 300, height: 300 }, scene);
+        const sandTex = new BABYLON.DynamicTexture('sandTex', 512, scene);
+        const sctx = sandTex.getContext();
+        sctx.fillStyle = '#c9a06a';
+        sctx.fillRect(0, 0, 512, 512);
+        // Speckle the sand
+        for (let i = 0; i < 9000; i++) {
+            const shade = Math.random();
+            sctx.fillStyle = shade < 0.5 ? 'rgba(140,100,55,0.25)' : 'rgba(240,210,160,0.2)';
+            sctx.fillRect(Math.random() * 512, Math.random() * 512, 1.5, 1.5);
         }
-        gridTex.update();
+        // Faint wind ripples
+        sctx.strokeStyle = 'rgba(160,115,65,0.18)';
+        sctx.lineWidth = 2;
+        for (let i = 0; i < 40; i++) {
+            sctx.beginPath();
+            const y = Math.random() * 512;
+            sctx.moveTo(0, y);
+            for (let x = 0; x <= 512; x += 32) {
+                sctx.lineTo(x, y + Math.sin(x * 0.05 + i) * 6);
+            }
+            sctx.stroke();
+        }
+        sandTex.update();
         const groundMat = new BABYLON.StandardMaterial('gmat', scene);
-        groundMat.diffuseTexture = gridTex;
-        groundMat.diffuseTexture.uScale = 25;
-        groundMat.diffuseTexture.vScale = 25;
-        groundMat.specularColor = new BABYLON.Color3(0.12, 0.08, 0.08); // subtle
-        groundMat.specularPower = 48;
+        groundMat.diffuseTexture = sandTex;
+        groundMat.diffuseTexture.uScale = 12;
+        groundMat.diffuseTexture.vScale = 12;
+        groundMat.specularColor = new BABYLON.Color3(0.05, 0.04, 0.03);
         ground.material = groundMat;
         ground.isPickable = true;
         ground.checkCollisions = true;
 
-        // ---------- CRATES (obstacles: block movement + shots, small ones jumpable) ----------
-        const crateMat = new BABYLON.StandardMaterial('crateMat', scene);
-        crateMat.diffuseColor = new BABYLON.Color3(0.25, 0.25, 0.3);
-        crateMat.specularColor = new BABYLON.Color3(0.4, 0.3, 0.3);
-        crateMat.specularPower = 24;
-        const crates = [];
-        for (let i = 0; i < 50; i++) {
-            // Mix of small jumpable crates (~1m) and big cover (2-3m)
-            const size = Math.random() < 0.5 ? 0.9 + Math.random() * 0.3 : 1.8 + Math.random() * 1.2;
-            const crate = BABYLON.MeshBuilder.CreateBox('crate' + i, { size }, scene);
-            let px, pz;
-            do {
-                px = (Math.random() - 0.5) * 140;
-                pz = (Math.random() - 0.5) * 140;
-            } while (Math.hypot(px - 0, pz - (-8)) < 5); // keep spawn area clear
-            crate.position = new BABYLON.Vector3(px, size / 2, pz);
-            crate.rotation.y = Math.random() * Math.PI;
-            crate.material = crateMat;
-            crate.isPickable = true;
-            crate.checkCollisions = true;
-            crate.metadata = { crate: true };
-            crates.push(crate);
+        // ---------- TWIN SUNS ----------
+        const sunMat1 = new BABYLON.StandardMaterial('sunMat1', scene);
+        sunMat1.emissiveColor = new BABYLON.Color3(1, 0.85, 0.55);
+        sunMat1.disableLighting = true;
+        const sun1 = BABYLON.MeshBuilder.CreateSphere('sunA', { diameter: 14 }, scene);
+        sun1.position = new BABYLON.Vector3(70, 38, 140);
+        sun1.material = sunMat1;
+        sun1.isPickable = false;
+        sun1.applyFog = false;
+
+        const sunMat2 = new BABYLON.StandardMaterial('sunMat2', scene);
+        sunMat2.emissiveColor = new BABYLON.Color3(1, 0.6, 0.35);
+        sunMat2.disableLighting = true;
+        const sun2 = BABYLON.MeshBuilder.CreateSphere('sunB', { diameter: 9 }, scene);
+        sun2.position = new BABYLON.Vector3(92, 30, 135);
+        sun2.material = sunMat2;
+        sun2.isPickable = false;
+        sun2.applyFog = false;
+
+        // ---------- OBSTACLE REGISTRY (for AI steering + collisions) ----------
+        const obstacles = []; // { x, z, radius }
+        function registerObstacle(mesh, radius) {
+            mesh.checkCollisions = true;
+            mesh.isPickable = true;
+            if (!mesh.metadata) mesh.metadata = {};
+            mesh.metadata.obstacle = true;
+            obstacles.push({ x: mesh.position.x, z: mesh.position.z, radius });
+        }
+        function clearOfSpawn(x, z, r) {
+            return Math.hypot(x - 0, z - (-8)) > r + 6;
         }
 
-        // ---------- GUN ----------
+        // ---------- MATERIALS FOR STRUCTURES ----------
+        const domeMat = new BABYLON.StandardMaterial('domeMat', scene);
+        domeMat.diffuseColor = new BABYLON.Color3(0.92, 0.85, 0.72);
+        domeMat.specularColor = new BABYLON.Color3(0.05, 0.05, 0.05);
+
+        const rockMat = new BABYLON.StandardMaterial('rockMat', scene);
+        rockMat.diffuseColor = new BABYLON.Color3(0.62, 0.47, 0.33);
+        rockMat.specularColor = new BABYLON.Color3(0.03, 0.03, 0.03);
+
+        const metalMat = new BABYLON.StandardMaterial('metalMat', scene);
+        metalMat.diffuseColor = new BABYLON.Color3(0.55, 0.52, 0.48);
+        metalMat.specularColor = new BABYLON.Color3(0.25, 0.25, 0.25);
+
+        const crawlerMat = new BABYLON.StandardMaterial('crawlerMat', scene);
+        crawlerMat.diffuseColor = new BABYLON.Color3(0.45, 0.28, 0.15);
+        crawlerMat.specularColor = new BABYLON.Color3(0.05, 0.05, 0.05);
+
+        const crateMat = new BABYLON.StandardMaterial('crateMat', scene);
+        crateMat.diffuseColor = new BABYLON.Color3(0.4, 0.38, 0.35);
+        crateMat.specularColor = new BABYLON.Color3(0.15, 0.15, 0.15);
+
+        // ---------- HOMESTEAD DOMES ----------
+        const domeSpots = [[14, 6], [19, 12], [10, 14], [-24, 28], [-30, 22]];
+        domeSpots.forEach(([x, z], i) => {
+            if (!clearOfSpawn(x, z, 4)) return;
+            const dome = BABYLON.MeshBuilder.CreateSphere('dome' + i, { diameter: 7, slice: 0.5 }, scene);
+            dome.position = new BABYLON.Vector3(x, 0, z);
+            dome.material = domeMat;
+            registerObstacle(dome, 3.6);
+            // Entry ring
+            const entry = BABYLON.MeshBuilder.CreateCylinder('entry' + i, { diameter: 2.2, height: 1.6 }, scene);
+            entry.position = new BABYLON.Vector3(x + 3.2, 0.8, z);
+            entry.material = domeMat;
+            registerObstacle(entry, 1.3);
+        });
+
+        // ---------- MOISTURE VAPORATORS ----------
+        const vapSpots = [[-12, 18], [6, 30], [28, -8], [-32, -14], [22, 26], [-8, 42], [38, 14]];
+        vapSpots.forEach(([x, z], i) => {
+            if (!clearOfSpawn(x, z, 1)) return;
+            const pole = BABYLON.MeshBuilder.CreateCylinder('vap' + i, { diameter: 0.5, height: 6.5, tessellation: 8 }, scene);
+            pole.position = new BABYLON.Vector3(x, 3.25, z);
+            pole.material = metalMat;
+            registerObstacle(pole, 0.6);
+            for (let ring = 0; ring < 3; ring++) {
+                const disc = BABYLON.MeshBuilder.CreateCylinder('vapRing' + i + '_' + ring, { diameter: 1.3 - ring * 0.3, height: 0.18, tessellation: 8 }, scene);
+                disc.position = new BABYLON.Vector3(x, 4.4 + ring * 0.8, z);
+                disc.material = metalMat;
+                disc.isPickable = false;
+            }
+        });
+
+        // ---------- CANYON BOULDERS ----------
+        for (let i = 0; i < 40; i++) {
+            let x, z;
+            do {
+                x = (Math.random() - 0.5) * 220;
+                z = (Math.random() - 0.5) * 220;
+            } while (!clearOfSpawn(x, z, 3));
+            const big = Math.random() < 0.4;
+            const s = big ? 2.5 + Math.random() * 3 : 0.9 + Math.random() * 0.5;
+            const rock = BABYLON.MeshBuilder.CreateSphere('rock' + i, { diameter: s, segments: 5 }, scene);
+            rock.scaling = new BABYLON.Vector3(1 + Math.random() * 0.6, 0.55 + Math.random() * 0.3, 1 + Math.random() * 0.6);
+            rock.position = new BABYLON.Vector3(x, (s * rock.scaling.y) / 2 * 0.8, z);
+            rock.rotation.y = Math.random() * Math.PI;
+            rock.material = rockMat;
+            registerObstacle(rock, (s * Math.max(rock.scaling.x, rock.scaling.z)) / 2 + 0.3);
+        }
+
+        // ---------- CANYON WALL RIDGES (map edges feel enclosed) ----------
+        const ridgeSpots = [[-90, 0, 30, 14], [90, 20, 26, 12], [0, 95, 40, 16], [-40, -90, 34, 13], [60, -80, 28, 11]];
+        ridgeSpots.forEach(([x, z, w, h], i) => {
+            const ridge = BABYLON.MeshBuilder.CreateSphere('ridge' + i, { diameter: w, segments: 5 }, scene);
+            ridge.scaling = new BABYLON.Vector3(1.6, h / w, 1);
+            ridge.position = new BABYLON.Vector3(x, h * 0.32, z);
+            ridge.rotation.y = Math.random() * Math.PI;
+            ridge.material = rockMat;
+            registerObstacle(ridge, w * 0.9);
+        });
+
+        // ---------- SANDCRAWLER ON THE HORIZON ----------
+        const crawler = BABYLON.MeshBuilder.CreateBox('crawler', { width: 26, height: 12, depth: 10 }, scene);
+        crawler.position = new BABYLON.Vector3(-58, 6, 72);
+        crawler.rotation.y = 0.5;
+        crawler.material = crawlerMat;
+        registerObstacle(crawler, 16);
+        const crawlerTop = BABYLON.MeshBuilder.CreateBox('crawlerTop', { width: 18, height: 4, depth: 8 }, scene);
+        crawlerTop.position = new BABYLON.Vector3(-58, 14, 72);
+        crawlerTop.rotation.y = 0.5;
+        crawlerTop.material = crawlerMat;
+        crawlerTop.isPickable = false;
+
+        // ---------- SUPPLY CRATES (jumpable, near domes) ----------
+        const crateSpots = [[12, 9], [16, 14], [-26, 25], [4, -4], [-6, 8], [24, 2], [-14, -10], [8, 20]];
+        crateSpots.forEach(([x, z], i) => {
+            if (!clearOfSpawn(x, z, 1)) return;
+            const s = 0.9 + Math.random() * 0.25;
+            const crate = BABYLON.MeshBuilder.CreateBox('supply' + i, { size: s }, scene);
+            crate.position = new BABYLON.Vector3(x, s / 2, z);
+            crate.rotation.y = Math.random() * Math.PI;
+            crate.material = crateMat;
+            registerObstacle(crate, s * 0.75);
+        });
+
+        // ---------- E-11 STYLE BLASTER (procedural) ----------
         const gun = new BABYLON.TransformNode('gun', scene);
         gun.parent = camera;
         const GUN_HIP = new BABYLON.Vector3(0.35, -0.3, 1.2);
@@ -131,22 +262,71 @@
         gun.position = GUN_HIP.clone();
 
         const gunMat = new BABYLON.StandardMaterial('gunMat', scene);
-        gunMat.diffuseColor = new BABYLON.Color3(0.15, 0.15, 0.18);
-        gunMat.specularColor = new BABYLON.Color3(0.3, 0.3, 0.3);
+        gunMat.diffuseColor = new BABYLON.Color3(0.08, 0.08, 0.09);
+        gunMat.specularColor = new BABYLON.Color3(0.35, 0.35, 0.38);
+        gunMat.specularPower = 48;
 
-        const barrel = BABYLON.MeshBuilder.CreateCylinder('barrel', { height: 0.7, diameter: 0.07 }, scene);
-        barrel.rotation.x = Math.PI / 2; barrel.position.z = 0.35;
-        barrel.material = gunMat; barrel.parent = gun; barrel.isPickable = false;
+        function gunPart(mesh) {
+            mesh.material = gunMat;
+            mesh.parent = gun;
+            mesh.isPickable = false;
+            return mesh;
+        }
 
-        const body = BABYLON.MeshBuilder.CreateBox('gunbody', { width: 0.12, height: 0.18, depth: 0.45 }, scene);
-        body.material = gunMat; body.parent = gun; body.isPickable = false;
+        // Receiver body
+        gunPart(BABYLON.MeshBuilder.CreateBox('e11body', { width: 0.09, height: 0.15, depth: 0.5 }, scene));
 
-        const grip = BABYLON.MeshBuilder.CreateBox('grip', { width: 0.09, height: 0.25, depth: 0.1 }, scene);
-        grip.position.y = -0.18; grip.position.z = -0.12; grip.rotation.x = 0.3;
-        grip.material = gunMat; grip.parent = gun; grip.isPickable = false;
+        // Main barrel
+        const e11barrel = gunPart(BABYLON.MeshBuilder.CreateCylinder('e11barrel', { diameter: 0.055, height: 0.6, tessellation: 12 }, scene));
+        e11barrel.rotation.x = Math.PI / 2;
+        e11barrel.position.z = 0.5;
 
-        const muzzle = BABYLON.MeshBuilder.CreateSphere('muzzle', { diameter: 0.12 }, scene);
-        muzzle.position.z = 0.72; muzzle.parent = gun; muzzle.isPickable = false;
+        // Barrel shroud (wider tube over the back half of the barrel)
+        const shroud = gunPart(BABYLON.MeshBuilder.CreateCylinder('shroud', { diameter: 0.085, height: 0.3, tessellation: 12 }, scene));
+        shroud.rotation.x = Math.PI / 2;
+        shroud.position.z = 0.38;
+
+        // Cooling rings along the shroud
+        for (let i = 0; i < 4; i++) {
+            const ring = gunPart(BABYLON.MeshBuilder.CreateTorus('ring' + i, { diameter: 0.095, thickness: 0.012, tessellation: 14 }, scene));
+            ring.rotation.x = Math.PI / 2;
+            ring.position.z = 0.28 + i * 0.075;
+        }
+
+        // Muzzle tip (flared cone)
+        const tip = gunPart(BABYLON.MeshBuilder.CreateCylinder('tip', { diameterTop: 0.075, diameterBottom: 0.05, height: 0.07, tessellation: 12 }, scene));
+        tip.rotation.x = Math.PI / 2;
+        tip.position.z = 0.82;
+
+        // Scope on top
+        const scopeMain = gunPart(BABYLON.MeshBuilder.CreateCylinder('scope', { diameter: 0.05, height: 0.22, tessellation: 10 }, scene));
+        scopeMain.rotation.x = Math.PI / 2;
+        scopeMain.position.y = 0.12;
+        scopeMain.position.z = 0.05;
+        const mount1 = gunPart(BABYLON.MeshBuilder.CreateBox('mount1', { width: 0.03, height: 0.06, depth: 0.03 }, scene));
+        mount1.position.y = 0.085; mount1.position.z = -0.02;
+        const mount2 = gunPart(BABYLON.MeshBuilder.CreateBox('mount2', { width: 0.03, height: 0.06, depth: 0.03 }, scene));
+        mount2.position.y = 0.085; mount2.position.z = 0.12;
+
+        // Magazine (angled, ahead of trigger)
+        const mag = gunPart(BABYLON.MeshBuilder.CreateBox('mag', { width: 0.05, height: 0.16, depth: 0.08 }, scene));
+        mag.position.y = -0.13; mag.position.z = 0.12;
+        mag.rotation.x = -0.25;
+
+        // Grip
+        const e11grip = gunPart(BABYLON.MeshBuilder.CreateBox('e11grip', { width: 0.045, height: 0.2, depth: 0.09 }, scene));
+        e11grip.position.y = -0.15; e11grip.position.z = -0.1;
+        e11grip.rotation.x = 0.35;
+
+        // Folding stock bar along the top-rear
+        const stockBar = gunPart(BABYLON.MeshBuilder.CreateBox('stock', { width: 0.03, height: 0.03, depth: 0.28 }, scene));
+        stockBar.position.y = 0.06; stockBar.position.z = -0.3;
+
+        // Muzzle flash anchor
+        const muzzle = BABYLON.MeshBuilder.CreateSphere('muzzle', { diameter: 0.1 }, scene);
+        muzzle.position.z = 0.88;
+        muzzle.parent = gun;
+        muzzle.isPickable = false;
         const muzzleMat = new BABYLON.StandardMaterial('muzzleMat', scene);
         muzzleMat.emissiveColor = new BABYLON.Color3(1, 0.9, 0.4);
         muzzleMat.alpha = 0;
@@ -159,7 +339,7 @@
 
         // ---------- BOLTS ----------
         const glow = new BABYLON.GlowLayer('glow', scene);
-        glow.intensity = 1.8;
+        glow.intensity = 1.6;
 
         const boltMat = new BABYLON.StandardMaterial('boltMat', scene);
         boltMat.emissiveColor = new BABYLON.Color3(1, 0.15, 0.1);
@@ -180,7 +360,6 @@
             if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
             const o = audioCtx.createOscillator(), g = audioCtx.createGain();
             o.type = 'sawtooth';
-            // Pitch climbs as the blaster heats up
             const startF = 900 + heatFrac * 550;
             const endF = 120 + heatFrac * 180;
             o.frequency.setValueAtTime(startF, audioCtx.currentTime);
@@ -216,11 +395,11 @@
         // ---------- STATE ----------
         let score = 0, wave = 1, gameOver = false;
 
-        // Overheat (tighter tuning: ~7 shots to redline, slower recovery)
+        // Overheat: cooldown twice as fast as before
         let heat = 0;
         const HEAT_PER_SHOT = 14;
-        const COOL_RATE = 18;
-        const OVERHEAT_COOL_RATE = 12;
+        const COOL_RATE = 36;
+        const OVERHEAT_COOL_RATE = 24;
         let overheated = false;
 
         let troopers = [];
@@ -237,7 +416,6 @@
         // ---------- LOAD MODEL ----------
         BABYLON.SceneLoader.LoadAssetContainer('./', 'stormtrooper.glb', scene, function(loaded) {
             container = loaded;
-
             let min = new BABYLON.Vector3(Infinity, Infinity, Infinity);
             let max = new BABYLON.Vector3(-Infinity, -Infinity, -Infinity);
             container.meshes.forEach(m => {
@@ -247,7 +425,6 @@
                 max = BABYLON.Vector3.Maximize(max, b.maximumWorld);
             });
             trooperScale = TROOPER_HEIGHT / (max.y - min.y);
-
             hasRunAnim = container.animationGroups.length > 0;
             spawnWave();
         });
@@ -257,12 +434,17 @@
             const root = inst.rootNodes[0];
             root.scaling.scaleInPlace(trooperScale);
 
-            const angle = Math.random() * Math.PI * 2;
-            const dist = 20 + Math.random() * 15;
-            root.position = new BABYLON.Vector3(
-                camera.position.x + Math.sin(angle) * dist, 0,
-                camera.position.z + Math.cos(angle) * dist
-            );
+            // Don't spawn inside an obstacle
+            let px, pz, tries = 0;
+            do {
+                const angle = Math.random() * Math.PI * 2;
+                const dist = 25 + Math.random() * 15;
+                px = camera.position.x + Math.sin(angle) * dist;
+                pz = camera.position.z + Math.cos(angle) * dist;
+                tries++;
+            } while (tries < 20 && obstacles.some(o => Math.hypot(px - o.x, pz - o.z) < o.radius + 1.5));
+
+            root.position = new BABYLON.Vector3(px, 0, pz);
 
             let anim = null;
             if (inst.animationGroups.length > 0) {
@@ -311,10 +493,9 @@
             recoilT = 1;
             setTimeout(() => { muzzleMat.alpha = 0; muzzleLight.intensity = 0; }, 60);
 
-            // Aim-corrected firing: bolt flies from muzzle to whatever
-            // is under the crosshair, so it lands on the dot
+            // Aim-corrected: raycast the crosshair, fire the bolt at that point
             const aimRay = camera.getForwardRay(500);
-            const aimHit = scene.pickWithRay(aimRay, m => m.isPickable && m.metadata && (m.metadata.trooper || m.metadata.crate));
+            const aimHit = scene.pickWithRay(aimRay, m => m.isPickable && m.metadata && (m.metadata.trooper || m.metadata.obstacle));
             const targetPoint = (aimHit && aimHit.hit)
                 ? aimHit.pickedPoint
                 : camera.position.add(aimRay.direction.scale(300));
@@ -364,7 +545,7 @@
             if (score % 5 === 0) { wave++; waveEl.textContent = wave; }
 
             const root = trooper.root;
-            const tipAnim = new BABYLON.Animation('tip', 'rotation.x', 60,
+            const tipAnim = new BABYLON.Animation('tipOver', 'rotation.x', 60,
                 BABYLON.Animation.ANIMATIONTYPE_FLOAT, BABYLON.Animation.ANIMATIONLOOPMODE_CONSTANT);
             tipAnim.setKeys([{ frame: 0, value: root.rotation.x }, { frame: 30, value: root.rotation.x + Math.PI / 2 }]);
             root.animations = [tipAnim];
@@ -414,10 +595,9 @@
             setTimeout(() => { ps.stop(); setTimeout(() => ps.dispose(), 800); }, 200);
         }
 
-        // Small spark when a bolt hits a crate
-        function crateImpact(position) {
+        function surfaceImpact(position) {
             impactFlash(position);
-            const ps = new BABYLON.ParticleSystem('crateSparks', 40, scene);
+            const ps = new BABYLON.ParticleSystem('surfSparks', 40, scene);
             ps.particleTexture = new BABYLON.Texture('https://assets.babylonjs.com/textures/flare.png', scene);
             ps.emitter = position.clone();
             ps.color1 = new BABYLON.Color4(1, 0.8, 0.3, 1);
@@ -438,13 +618,12 @@
         let bobT = 0;
         const lastPos = camera.position.clone();
 
-        // Find the surface height under the player (ground or crate tops)
         function surfaceYUnderPlayer() {
             const ray = new BABYLON.Ray(
                 new BABYLON.Vector3(camera.position.x, camera.position.y + 0.1, camera.position.z),
-                new BABYLON.Vector3(0, -1, 0), 20
+                new BABYLON.Vector3(0, -1, 0), 25
             );
-            const hit = scene.pickWithRay(ray, m => m === ground || (m.metadata && m.metadata.crate));
+            const hit = scene.pickWithRay(ray, m => m === ground || (m.metadata && m.metadata.obstacle));
             return (hit && hit.hit) ? hit.pickedPoint.y : 0;
         }
 
@@ -465,19 +644,19 @@
             }
             heatBar.style.width = heat + '%';
 
-            // Bolts (blocked by troopers AND crates)
+            // Bolts
             for (let i = bolts.length - 1; i >= 0; i--) {
                 const b = bolts[i];
                 const step = BOLT_SPEED * dt;
                 const ray = new BABYLON.Ray(b.mesh.position, b.direction, step + 0.7);
-                const hit = scene.pickWithRay(ray, m => m.isPickable && m.metadata && (m.metadata.trooper || m.metadata.crate));
+                const hit = scene.pickWithRay(ray, m => m.isPickable && m.metadata && (m.metadata.trooper || m.metadata.obstacle));
                 if (hit && hit.hit && hit.pickedMesh.metadata) {
                     if (hit.pickedMesh.metadata.trooper) {
                         const trooper = hit.pickedMesh.metadata.trooper;
                         if (trooper.alive) killTrooper(trooper, hit.pickedPoint);
                         impactFlash(b.mesh.position);
                     } else {
-                        crateImpact(hit.pickedPoint);
+                        surfaceImpact(hit.pickedPoint);
                     }
                     b.light.dispose(); b.mesh.dispose(); bolts.splice(i, 1); continue;
                 }
@@ -486,7 +665,7 @@
                 if (b.distanceLeft <= 0) { b.light.dispose(); b.mesh.dispose(); bolts.splice(i, 1); }
             }
 
-            // ADS: FOV, gun position, and reduced sensitivity
+            // ADS
             const targetFov = isADS ? ADS_FOV : BASE_FOV;
             camera.fov += (targetFov - camera.fov) * Math.min(1, dt * 12);
             camera.angularSensibility = isADS ? ADS_SENS : BASE_SENS;
@@ -496,14 +675,14 @@
             // Movement bob
             const horizMoved = Math.hypot(camera.position.x - lastPos.x, camera.position.z - lastPos.z);
             if (horizMoved > 0.001 && grounded) {
-                bobT += dt * (sprinting ? 13 : 8);
-                gun.position.y += Math.sin(bobT) * (sprinting ? 0.03 : 0.015);
+                bobT += dt * (sprinting ? 14 : 9);
+                gun.position.y += Math.sin(bobT) * (sprinting ? 0.035 : 0.015);
                 gun.position.x += Math.cos(bobT * 0.5) * 0.01;
                 camera.position.y += Math.sin(bobT) * 0.015;
             }
             lastPos.set(camera.position.x, camera.position.y, camera.position.z);
 
-            // Recoil: backward slide + upward kick of the gun
+            // Recoil
             if (recoilT > 0) {
                 recoilT = Math.max(0, recoilT - dt * 8);
                 gun.position.z -= recoilT * 0.15;
@@ -512,10 +691,9 @@
                 gun.rotation.x = 0;
             }
 
-            // Jump + crouch + standing on crates
+            // Jump + crouch + surfaces
             const surfaceY = surfaceYUnderPlayer();
             const targetH = surfaceY + (crouching ? CROUCH_H : STAND_H);
-
             if (!grounded) {
                 velY -= 14 * dt;
                 camera.position.y += velY * dt;
@@ -525,7 +703,6 @@
                     grounded = true;
                 }
             } else {
-                // Walked off an edge?
                 if (camera.position.y - targetH > 0.1) {
                     grounded = false;
                     velY = 0;
@@ -533,7 +710,8 @@
                     camera.position.y += (targetH - camera.position.y) * Math.min(1, dt * 10);
                 }
             }
-            camera.speed = crouching ? 0.15 : (isADS ? 0.18 : (sprinting ? 0.6 : 0.35));
+            // Player speeds: ~2x faster, sprint properly quick
+            camera.speed = crouching ? 0.25 : (isADS ? 0.3 : (sprinting ? 1.15 : 0.65));
 
             // Shake
             if (shakeT > 0) {
@@ -545,16 +723,38 @@
 
             if (gameOver) return;
 
-            // Troopers advance
-            const speed = (0.8 + wave * 0.15) * dt;
+            // Troopers: steer toward player, avoid obstacles
+            const speed = (1.0 + wave * 0.18) * dt;
             troopers.forEach(t => {
                 if (!t.alive) return;
                 const toPlayer = camera.position.subtract(t.root.position);
                 toPlayer.y = 0;
                 const distance = toPlayer.length();
                 if (distance < 1.5) { endGame(); return; }
-                t.root.position.addInPlace(toPlayer.normalize().scale(speed));
-                t.root.lookAt(new BABYLON.Vector3(camera.position.x, 0, camera.position.z));
+
+                // Base direction toward player
+                const moveDir = toPlayer.normalize();
+
+                // Repulsion from nearby obstacles (simple steering)
+                obstacles.forEach(o => {
+                    const dx = t.root.position.x - o.x;
+                    const dz = t.root.position.z - o.z;
+                    const d = Math.hypot(dx, dz);
+                    const avoidR = o.radius + 1.4;
+                    if (d < avoidR && d > 0.01) {
+                        const push = (avoidR - d) / avoidR;
+                        moveDir.x += (dx / d) * push * 2.4;
+                        moveDir.z += (dz / d) * push * 2.4;
+                    }
+                });
+                moveDir.y = 0;
+                moveDir.normalize();
+
+                t.root.position.addInPlace(moveDir.scale(speed));
+
+                // Face direction of travel
+                const facePoint = t.root.position.add(moveDir);
+                t.root.lookAt(new BABYLON.Vector3(facePoint.x, 0, facePoint.z));
                 t.root.rotate(BABYLON.Axis.Y, -Math.PI / 2, BABYLON.Space.LOCAL);
 
                 if (!hasRunAnim) {
