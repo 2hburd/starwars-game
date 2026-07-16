@@ -3,6 +3,7 @@
 <head>
     <title>Star Wars Shooter</title>
     <script src="https://unpkg.com/babylonjs@5.0.0/babylon.js"></script>
+    <script src="https://unpkg.com/babylonjs-loaders@5.0.0/babylonjs.loaders.min.js"></script>
     <style>
         body { margin: 0; background: #000; }
         canvas { display: block; }
@@ -20,30 +21,44 @@
         const engine = new BABYLON.Engine(canvas, true);
         const scene = new BABYLON.Scene(engine);
         
-        const camera = new BABYLON.UniversalCamera('camera', new BABYLON.Vector3(0, 0, -10));
+        const camera = new BABYLON.UniversalCamera('camera', new BABYLON.Vector3(0, 0, -5));
         camera.attachControl(canvas, true);
         camera.speed = 0.1;
         
         const light = new BABYLON.HemisphericLight('light', new BABYLON.Vector3(0, 1, 0), scene);
         light.intensity = 0.8;
         
-        const sphere = BABYLON.MeshBuilder.CreateSphere('sphere', {diameter: 2}, scene);
-        sphere.material = new BABYLON.StandardMaterial('mat', scene);
-        sphere.material.diffuse = new BABYLON.Color3(1, 1, 1);
-        
         scene.clearColor = new BABYLON.Color3(0, 0, 0);
         
         let hits = 0;
+        let stormtrooper;
+        
+        // Load the stormtrooper model
+        BABYLON.SceneLoader.ImportMesh('', './', 'stormtrooper.glb', scene, function(meshes) {
+            stormtrooper = meshes[0];
+            stormtrooper.position.z = 10;
+        });
+        
         canvas.addEventListener('click', () => {
+            if (!stormtrooper) return;
+            
             const origin = camera.position;
             const direction = BABYLON.Vector3.Normalize(camera.getTarget().subtract(origin));
             const ray = new BABYLON.Ray(origin, direction, 100);
             const hit = scene.pickWithRay(ray);
-            if (hit && hit.hit) {
+            
+            if (hit && hit.hit && hit.pickedMesh === stormtrooper) {
                 hits++;
                 document.getElementById('hits').textContent = hits;
-                sphere.material.emissiveColor = new BABYLON.Color3(1, 0, 0);
-                setTimeout(() => sphere.material.emissiveColor = new BABYLON.Color3(0, 0, 0), 100);
+                
+                // Flash on hit
+                const origColor = hit.pickedMesh.material?.emissiveColor?.clone() || new BABYLON.Color3(1, 1, 1);
+                if (hit.pickedMesh.material) {
+                    hit.pickedMesh.material.emissiveColor = new BABYLON.Color3(1, 0, 0);
+                    setTimeout(() => {
+                        hit.pickedMesh.material.emissiveColor = origColor;
+                    }, 100);
+                }
             }
         });
         
