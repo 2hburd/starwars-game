@@ -11,11 +11,12 @@
         #crosshair { position: absolute; top: 50%; left: 50%; width: 20px; height: 20px; border: 2px solid #0f0; transform: translate(-50%, -50%); pointer-events: none; }
         #crosshair::after { content: ''; position: absolute; top: 50%; left: 50%; width: 3px; height: 3px; background: #0f0; transform: translate(-50%, -50%); }
         #reload-msg { position: absolute; top: 60%; left: 50%; transform: translate(-50%, -50%); color: #ff0; font-family: monospace; font-size: 20px; display: none; }
+        #lock-hint { position: absolute; top: 40%; left: 50%; transform: translate(-50%, -50%); color: #0f0; font-family: monospace; font-size: 22px; text-shadow: 0 0 10px #0f0; }
         #gameover { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); display: none; flex-direction: column; align-items: center; justify-content: center; color: #f00; font-family: monospace; }
         #gameover h1 { font-size: 48px; text-shadow: 0 0 20px #f00; }
         #gameover p { color: #0f0; font-size: 20px; }
         #restart { background: #0f0; color: #000; border: none; padding: 12px 30px; font-family: monospace; font-size: 18px; cursor: pointer; margin-top: 20px; }
-        #start-hint { position: absolute; bottom: 30px; left: 50%; transform: translateX(-50%); color: #0f0; font-family: monospace; opacity: 0.7; }
+        #start-hint { position: absolute; bottom: 30px; left: 50%; transform: translateX(-50%); color: #0f0; font-family: monospace; opacity: 0.7; text-align: center; }
     </style>
 </head>
 <body>
@@ -27,7 +28,8 @@
     </div>
     <div id="crosshair"></div>
     <div id="reload-msg">RELOADING...</div>
-    <div id="start-hint">Click to shoot &bull; WASD to move &bull; R to reload</div>
+    <div id="lock-hint">CLICK TO PLAY</div>
+    <div id="start-hint">WASD move &bull; SPACE jump &bull; C crouch &bull; RIGHT-CLICK aim &bull; R reload &bull; ESC free mouse</div>
     <div id="gameover">
         <h1>GAME OVER</h1>
         <p>Score: <span id="final-score">0</span></p>
@@ -41,12 +43,29 @@
         scene.clearColor = new BABYLON.Color3(0.01, 0.01, 0.03);
 
         // ---------- CAMERA ----------
-        const camera = new BABYLON.UniversalCamera('camera', new BABYLON.Vector3(0, 1.7, -8));
+        const BASE_FOV = 0.8, ADS_FOV = 0.45;
+        const STAND_H = 1.7, CROUCH_H = 0.9;
+        const camera = new BABYLON.UniversalCamera('camera', new BABYLON.Vector3(0, STAND_H, -8), scene);
         camera.attachControl(canvas, true);
         camera.speed = 0.25;
         camera.minZ = 0.05;
+        camera.fov = BASE_FOV;
+        camera.inertia = 0.5;
+        camera.angularSensibility = 1200;
         camera.keysUp = [87]; camera.keysDown = [83];
         camera.keysLeft = [65]; camera.keysRight = [68];
+
+        // ---------- POINTER LOCK ----------
+        const lockHint = document.getElementById('lock-hint');
+        canvas.addEventListener('click', () => {
+            if (!document.pointerLockElement) {
+                canvas.requestPointerLock();
+            }
+        });
+        document.addEventListener('pointerlockchange', () => {
+            lockHint.style.display = document.pointerLockElement ? 'none' : 'block';
+        });
+        canvas.addEventListener('contextmenu', e => e.preventDefault());
 
         // ---------- LIGHTS ----------
         const hemi = new BABYLON.HemisphericLight('hemi', new BABYLON.Vector3(0, 1, 0), scene);
@@ -54,14 +73,12 @@
         const dir = new BABYLON.DirectionalLight('dir', new BABYLON.Vector3(0, -1, 1), scene);
         dir.intensity = 0.4;
 
-        // ---------- GROUND WITH VISIBLE GRID ----------
+        // ---------- GROUND GRID ----------
         const ground = BABYLON.MeshBuilder.CreateGround('ground', { width: 200, height: 200 }, scene);
         const gridTex = new BABYLON.DynamicTexture('gridTex', 512, scene);
         const gctx = gridTex.getContext();
-        gctx.fillStyle = '#0a0a12';
-        gctx.fillRect(0, 0, 512, 512);
-        gctx.strokeStyle = '#1a3a5c';
-        gctx.lineWidth = 2;
+        gctx.fillStyle = '#0a0a12'; gctx.fillRect(0, 0, 512, 512);
+        gctx.strokeStyle = '#1a3a5c'; gctx.lineWidth = 2;
         for (let i = 0; i <= 512; i += 64) {
             gctx.beginPath(); gctx.moveTo(i, 0); gctx.lineTo(i, 512); gctx.stroke();
             gctx.beginPath(); gctx.moveTo(0, i); gctx.lineTo(512, i); gctx.stroke();
@@ -75,55 +92,42 @@
         ground.material = groundMat;
         ground.isPickable = false;
 
-        // ---------- LANDMARK CRATES (motion reference + cover) ----------
+        // ---------- CRATES ----------
         const crateMat = new BABYLON.StandardMaterial('crateMat', scene);
         crateMat.diffuseColor = new BABYLON.Color3(0.25, 0.25, 0.3);
         for (let i = 0; i < 25; i++) {
             const size = 1 + Math.random() * 2;
             const crate = BABYLON.MeshBuilder.CreateBox('crate' + i, { size }, scene);
-            crate.position = new BABYLON.Vector3(
-                (Math.random() - 0.5) * 120,
-                size / 2,
-                (Math.random() - 0.5) * 120
-            );
+            crate.position = new BABYLON.Vector3((Math.random() - 0.5) * 120, size / 2, (Math.random() - 0.5) * 120);
             crate.rotation.y = Math.random() * Math.PI;
             crate.material = crateMat;
             crate.isPickable = false;
         }
 
-        // ---------- PROCEDURAL BLASTER GUN ----------
+        // ---------- GUN ----------
         const gun = new BABYLON.TransformNode('gun', scene);
         gun.parent = camera;
-        gun.position = new BABYLON.Vector3(0.35, -0.3, 1.2);
+        const GUN_HIP = new BABYLON.Vector3(0.35, -0.3, 1.2);
+        const GUN_ADS = new BABYLON.Vector3(0, -0.18, 0.9);
+        gun.position = GUN_HIP.clone();
 
         const gunMat = new BABYLON.StandardMaterial('gunMat', scene);
         gunMat.diffuseColor = new BABYLON.Color3(0.15, 0.15, 0.18);
         gunMat.specularColor = new BABYLON.Color3(0.3, 0.3, 0.3);
 
         const barrel = BABYLON.MeshBuilder.CreateCylinder('barrel', { height: 0.7, diameter: 0.07 }, scene);
-        barrel.rotation.x = Math.PI / 2;
-        barrel.position.z = 0.35;
-        barrel.material = gunMat;
-        barrel.parent = gun;
-        barrel.isPickable = false;
+        barrel.rotation.x = Math.PI / 2; barrel.position.z = 0.35;
+        barrel.material = gunMat; barrel.parent = gun; barrel.isPickable = false;
 
         const body = BABYLON.MeshBuilder.CreateBox('gunbody', { width: 0.12, height: 0.18, depth: 0.45 }, scene);
-        body.material = gunMat;
-        body.parent = gun;
-        body.isPickable = false;
+        body.material = gunMat; body.parent = gun; body.isPickable = false;
 
         const grip = BABYLON.MeshBuilder.CreateBox('grip', { width: 0.09, height: 0.25, depth: 0.1 }, scene);
-        grip.position.y = -0.18;
-        grip.position.z = -0.12;
-        grip.rotation.x = 0.3;
-        grip.material = gunMat;
-        grip.parent = gun;
-        grip.isPickable = false;
+        grip.position.y = -0.18; grip.position.z = -0.12; grip.rotation.x = 0.3;
+        grip.material = gunMat; grip.parent = gun; grip.isPickable = false;
 
         const muzzle = BABYLON.MeshBuilder.CreateSphere('muzzle', { diameter: 0.12 }, scene);
-        muzzle.position.z = 0.72;
-        muzzle.parent = gun;
-        muzzle.isPickable = false;
+        muzzle.position.z = 0.72; muzzle.parent = gun; muzzle.isPickable = false;
         const muzzleMat = new BABYLON.StandardMaterial('muzzleMat', scene);
         muzzleMat.emissiveColor = new BABYLON.Color3(1, 0.9, 0.4);
         muzzleMat.alpha = 0;
@@ -134,27 +138,24 @@
         muzzleLight.diffuse = new BABYLON.Color3(1, 0.8, 0.3);
         muzzleLight.intensity = 0;
 
-        // ---------- LASER BOLT SETUP (Battlefront-style projectiles) ----------
+        // ---------- BOLTS ----------
         const boltMat = new BABYLON.StandardMaterial('boltMat', scene);
         boltMat.emissiveColor = new BABYLON.Color3(1, 0.1, 0.1);
         boltMat.disableLighting = true;
-
         const boltTemplate = BABYLON.MeshBuilder.CreateCylinder('boltTemplate', { height: 1.2, diameter: 0.045 }, scene);
         boltTemplate.rotation.x = Math.PI / 2;
         boltTemplate.bakeCurrentTransformIntoVertices();
         boltTemplate.material = boltMat;
         boltTemplate.isPickable = false;
         boltTemplate.setEnabled(false);
-
-        let bolts = []; // { mesh, direction, distanceLeft }
-        const BOLT_SPEED = 60; // meters per second
+        let bolts = [];
+        const BOLT_SPEED = 60;
 
         // ---------- SOUND ----------
         let audioCtx = null;
         function blasterSound() {
             if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-            const o = audioCtx.createOscillator();
-            const g = audioCtx.createGain();
+            const o = audioCtx.createOscillator(), g = audioCtx.createGain();
             o.type = 'sawtooth';
             o.frequency.setValueAtTime(900, audioCtx.currentTime);
             o.frequency.exponentialRampToValueAtTime(120, audioCtx.currentTime + 0.18);
@@ -165,8 +166,7 @@
         }
         function hitSound() {
             if (!audioCtx) return;
-            const o = audioCtx.createOscillator();
-            const g = audioCtx.createGain();
+            const o = audioCtx.createOscillator(), g = audioCtx.createGain();
             o.type = 'square';
             o.frequency.setValueAtTime(200, audioCtx.currentTime);
             o.frequency.exponentialRampToValueAtTime(50, audioCtx.currentTime + 0.25);
@@ -176,51 +176,62 @@
             o.start(); o.stop(audioCtx.currentTime + 0.3);
         }
 
-        // ---------- GAME STATE ----------
+        // ---------- STATE ----------
         let score = 0, wave = 1, ammo = 30, reloading = false, gameOver = false;
         let troopers = [];
-        let trooperTemplate = null;
-        const TROOPER_HEIGHT = 1.8; // target height in meters
+        let container = null;
+        let hasRunAnim = false;
+        const TROOPER_HEIGHT = 1.8;
+        let trooperScale = 1;
 
         const scoreEl = document.getElementById('score');
         const waveEl = document.getElementById('wave');
         const ammoEl = document.getElementById('ammo');
         const reloadMsg = document.getElementById('reload-msg');
 
-        // ---------- LOAD + AUTO-SCALE STORMTROOPER ----------
-        BABYLON.SceneLoader.ImportMesh('', './', 'stormtrooper.glb', scene, function(meshes) {
-            trooperTemplate = meshes[0];
+        // ---------- LOAD MODEL AS ASSET CONTAINER ----------
+        BABYLON.SceneLoader.LoadAssetContainer('./', 'stormtrooper.glb', scene, function(loaded) {
+            container = loaded;
 
-            // Measure the model's real height and scale to 1.8m
+            // Measure height for auto-scale
             let min = new BABYLON.Vector3(Infinity, Infinity, Infinity);
             let max = new BABYLON.Vector3(-Infinity, -Infinity, -Infinity);
-            trooperTemplate.getChildMeshes().forEach(m => {
+            container.meshes.forEach(m => {
+                if (!m.getBoundingInfo) return;
                 const b = m.getBoundingInfo().boundingBox;
                 min = BABYLON.Vector3.Minimize(min, b.minimumWorld);
                 max = BABYLON.Vector3.Maximize(max, b.maximumWorld);
             });
-            const modelHeight = max.y - min.y;
-            const scaleFactor = TROOPER_HEIGHT / modelHeight;
-            trooperTemplate.scaling.scaleInPlace(scaleFactor);
+            trooperScale = TROOPER_HEIGHT / (max.y - min.y);
 
-            trooperTemplate.setEnabled(false);
+            hasRunAnim = container.animationGroups.length > 0;
+            console.log('Animations found in model:', container.animationGroups.map(a => a.name));
+
             spawnWave();
         });
 
         function spawnTrooper() {
-            const clone = trooperTemplate.instantiateHierarchy();
-            clone.setEnabled(true);
-            clone.scaling = trooperTemplate.scaling.clone();
+            const inst = container.instantiateModelsToScene(name => name, false);
+            const root = inst.rootNodes[0];
+            root.scaling.scaleInPlace(trooperScale);
+
             const angle = Math.random() * Math.PI * 2;
             const dist = 20 + Math.random() * 15;
-            clone.position = new BABYLON.Vector3(
-                camera.position.x + Math.sin(angle) * dist,
-                0,
+            root.position = new BABYLON.Vector3(
+                camera.position.x + Math.sin(angle) * dist, 0,
                 camera.position.z + Math.cos(angle) * dist
             );
-            const childMeshes = clone.getChildMeshes();
+
+            // Play run/walk animation if the model has one
+            let anim = null;
+            if (inst.animationGroups.length > 0) {
+                anim = inst.animationGroups.find(a => /run|walk|move|sprint/i.test(a.name)) || inst.animationGroups[0];
+                anim.start(true); // loop
+            }
+
+            const childMeshes = root.getChildMeshes();
             childMeshes.forEach(m => { m.isPickable = true; });
-            const trooper = { root: clone, meshes: childMeshes, alive: true };
+            const trooper = { root, meshes: childMeshes, alive: true, anim, bobPhase: Math.random() * Math.PI * 2 };
             childMeshes.forEach(m => m.metadata = { trooper });
             troopers.push(trooper);
         }
@@ -230,10 +241,15 @@
             for (let i = 0; i < count; i++) spawnTrooper();
         }
 
-        // ---------- SHOOTING: fire a bolt ----------
-        let recoilT = 0;
-        canvas.addEventListener('click', () => {
-            if (gameOver || reloading || !trooperTemplate) return;
+        // ---------- INPUT: shoot (left), ADS (right), jump, crouch ----------
+        let isADS = false;
+        let velY = 0, grounded = true, crouching = false;
+
+        canvas.addEventListener('mousedown', e => {
+            if (!document.pointerLockElement) return;
+            if (e.button === 2) { isADS = true; return; }
+            if (e.button !== 0) return;
+            if (gameOver || reloading || !container) return;
             if (ammo <= 0) { reload(); return; }
 
             ammo--;
@@ -245,16 +261,29 @@
             recoilT = 1;
             setTimeout(() => { muzzleMat.alpha = 0; muzzleLight.intensity = 0; }, 60);
 
-            // Spawn bolt at muzzle, flying toward crosshair
             const bolt = boltTemplate.clone('bolt');
             bolt.setEnabled(true);
-            const muzzleWorld = muzzle.getAbsolutePosition();
-            bolt.position = muzzleWorld.clone();
+            bolt.position = muzzle.getAbsolutePosition().clone();
             const direction = camera.getForwardRay(1).direction.normalize();
             bolt.lookAt(bolt.position.add(direction));
             bolts.push({ mesh: bolt, direction, distanceLeft: 150 });
 
             if (ammo <= 0) reload();
+        });
+        canvas.addEventListener('mouseup', e => {
+            if (e.button === 2) isADS = false;
+        });
+
+        document.addEventListener('keydown', e => {
+            if (e.code === 'Space' && grounded) {
+                velY = 5.5;
+                grounded = false;
+            }
+            if (e.code === 'KeyC') crouching = true;
+            if (e.code === 'KeyR' && !reloading && ammo < 30) reload();
+        });
+        document.addEventListener('keyup', e => {
+            if (e.code === 'KeyC') crouching = false;
         });
 
         function reload() {
@@ -268,25 +297,17 @@
             }, 1500);
         }
 
-        document.addEventListener('keydown', e => {
-            if (e.key === 'r' || e.key === 'R') {
-                if (!reloading && ammo < 30) reload();
-            }
-        });
-
-        // ---------- KILL + EXPLOSION ----------
+        // ---------- KILL ----------
         function killTrooper(trooper, hitPoint) {
             trooper.alive = false;
+            if (trooper.anim) trooper.anim.stop();
             hitSound();
             screenShake();
             sparkExplosion(hitPoint || trooper.root.position);
 
             score++;
             scoreEl.textContent = score;
-            if (score % 5 === 0) {
-                wave++;
-                waveEl.textContent = wave;
-            }
+            if (score % 5 === 0) { wave++; waveEl.textContent = wave; }
 
             const root = trooper.root;
             const tipAnim = new BABYLON.Animation('tip', 'rotation.x', 60,
@@ -322,44 +343,58 @@
             setTimeout(() => { ps.stop(); setTimeout(() => ps.dispose(), 800); }, 200);
         }
 
-        // ---------- SCREEN SHAKE ----------
         let shakeT = 0;
         function screenShake() { shakeT = 1; }
+        let recoilT = 0;
 
         // ---------- GAME LOOP ----------
         scene.onBeforeRenderObservable.add(() => {
             const dt = engine.getDeltaTime() / 1000;
 
-            // Move bolts + check collisions
+            // Bolts
             for (let i = bolts.length - 1; i >= 0; i--) {
                 const b = bolts[i];
                 const step = BOLT_SPEED * dt;
                 const ray = new BABYLON.Ray(b.mesh.position, b.direction, step + 0.6);
                 const hit = scene.pickWithRay(ray, m => m.isPickable && m.metadata && m.metadata.trooper);
-
                 if (hit && hit.hit && hit.pickedMesh.metadata) {
                     const trooper = hit.pickedMesh.metadata.trooper;
                     if (trooper.alive) killTrooper(trooper, hit.pickedPoint);
-                    b.mesh.dispose();
-                    bolts.splice(i, 1);
-                    continue;
+                    b.mesh.dispose(); bolts.splice(i, 1); continue;
                 }
-
                 b.mesh.position.addInPlace(b.direction.scale(step));
                 b.distanceLeft -= step;
-                if (b.distanceLeft <= 0) {
-                    b.mesh.dispose();
-                    bolts.splice(i, 1);
-                }
+                if (b.distanceLeft <= 0) { b.mesh.dispose(); bolts.splice(i, 1); }
             }
 
-            // Recoil
+            // ADS: smooth FOV + gun position
+            const targetFov = isADS ? ADS_FOV : BASE_FOV;
+            camera.fov += (targetFov - camera.fov) * Math.min(1, dt * 12);
+            const targetGun = isADS ? GUN_ADS : GUN_HIP;
+            gun.position = BABYLON.Vector3.Lerp(gun.position, targetGun, Math.min(1, dt * 12));
+
+            // Recoil (applied on top of ADS lerp)
             if (recoilT > 0) {
                 recoilT = Math.max(0, recoilT - dt * 8);
-                gun.position.z = 1.2 - recoilT * 0.15;
+                gun.position.z -= recoilT * 0.15;
             }
 
-            // Screen shake
+            // Jump physics + crouch
+            const targetH = crouching ? CROUCH_H : STAND_H;
+            if (!grounded) {
+                velY -= 14 * dt;
+                camera.position.y += velY * dt;
+                if (camera.position.y <= targetH) {
+                    camera.position.y = targetH;
+                    velY = 0;
+                    grounded = true;
+                }
+            } else {
+                camera.position.y += (targetH - camera.position.y) * Math.min(1, dt * 10);
+            }
+            camera.speed = crouching ? 0.12 : (isADS ? 0.15 : 0.25);
+
+            // Shake
             if (shakeT > 0) {
                 shakeT = Math.max(0, shakeT - dt * 5);
                 camera.rotation.z = (Math.random() - 0.5) * 0.02 * shakeT;
@@ -367,29 +402,31 @@
                 camera.rotation.z = 0;
             }
 
-            camera.position.y = 1.7;
-
             if (gameOver) return;
 
+            // Troopers advance
             const speed = (0.8 + wave * 0.15) * dt;
             troopers.forEach(t => {
                 if (!t.alive) return;
                 const toPlayer = camera.position.subtract(t.root.position);
                 toPlayer.y = 0;
                 const distance = toPlayer.length();
-
-                if (distance < 1.5) {
-                    endGame();
-                    return;
-                }
-                const move = toPlayer.normalize().scale(speed);
-                t.root.position.addInPlace(move);
+                if (distance < 1.5) { endGame(); return; }
+                t.root.position.addInPlace(toPlayer.normalize().scale(speed));
                 t.root.lookAt(new BABYLON.Vector3(camera.position.x, 0, camera.position.z));
+
+                // Procedural motion if model has no animations:
+                if (!hasRunAnim) {
+                    t.bobPhase += dt * 10;
+                    t.root.position.y = Math.abs(Math.sin(t.bobPhase)) * 0.12;
+                    t.root.rotation.x = 0.15; // forward lean
+                }
             });
         });
 
         function endGame() {
             gameOver = true;
+            document.exitPointerLock();
             document.getElementById('final-score').textContent = score;
             document.getElementById('gameover').style.display = 'flex';
         }
