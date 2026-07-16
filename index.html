@@ -8,8 +8,7 @@
         body { margin: 0; background: #000; overflow: hidden; }
         canvas { display: block; width: 100vw; height: 100vh; }
         #ui { position: absolute; top: 20px; left: 20px; color: #0f0; font-family: monospace; font-size: 16px; text-shadow: 0 0 8px #0f0; pointer-events: none; }
-        #crosshair { position: absolute; top: 50%; left: 50%; width: 20px; height: 20px; border: 2px solid #0f0; transform: translate(-50%, -50%); pointer-events: none; }
-        #crosshair::after { content: ''; position: absolute; top: 50%; left: 50%; width: 3px; height: 3px; background: #0f0; transform: translate(-50%, -50%); }
+        #crosshair { position: absolute; top: 50%; left: 50%; width: 4px; height: 4px; background: rgba(180, 255, 180, 0.8); border-radius: 50%; transform: translate(-50%, -50%); pointer-events: none; }
         #heat-container { position: absolute; bottom: 40px; left: 50%; transform: translateX(-50%); width: 220px; height: 10px; border: 1px solid #0f0; background: rgba(0,0,0,0.5); pointer-events: none; }
         #heat-bar { height: 100%; width: 0%; background: linear-gradient(90deg, #0f0, #ff0, #f00); transition: width 0.05s linear; }
         #overheat-msg { position: absolute; bottom: 60px; left: 50%; transform: translateX(-50%); color: #f00; font-family: monospace; font-size: 18px; text-shadow: 0 0 10px #f00; display: none; }
@@ -43,9 +42,11 @@
         const engine = new BABYLON.Engine(canvas, true);
         const scene = new BABYLON.Scene(engine);
         scene.clearColor = new BABYLON.Color3(0.01, 0.01, 0.03);
+        scene.collisionsEnabled = true;
 
         // ---------- CAMERA ----------
         const BASE_FOV = 0.8, ADS_FOV = 0.45;
+        const BASE_SENS = 1200, ADS_SENS = 2800; // higher = less sensitive
         const STAND_H = 1.7, CROUCH_H = 0.9;
         const camera = new BABYLON.UniversalCamera('camera', new BABYLON.Vector3(0, STAND_H, -8), scene);
         camera.attachControl(canvas, true);
@@ -53,9 +54,11 @@
         camera.minZ = 0.05;
         camera.fov = BASE_FOV;
         camera.inertia = 0.5;
-        camera.angularSensibility = 1200;
+        camera.angularSensibility = BASE_SENS;
         camera.keysUp = [87]; camera.keysDown = [83];
         camera.keysLeft = [65]; camera.keysRight = [68];
+        camera.checkCollisions = true;
+        camera.ellipsoid = new BABYLON.Vector3(0.45, 0.8, 0.45);
 
         // ---------- POINTER LOCK ----------
         const lockHint = document.getElementById('lock-hint');
@@ -75,7 +78,7 @@
         const dir = new BABYLON.DirectionalLight('dir', new BABYLON.Vector3(0, -1, 1), scene);
         dir.intensity = 0.4;
 
-        // ---------- GROUND GRID (slightly reflective) ----------
+        // ---------- GROUND GRID ----------
         const ground = BABYLON.MeshBuilder.CreateGround('ground', { width: 200, height: 200 }, scene);
         const gridTex = new BABYLON.DynamicTexture('gridTex', 512, scene);
         const gctx = gridTex.getContext();
@@ -90,23 +93,34 @@
         groundMat.diffuseTexture = gridTex;
         groundMat.diffuseTexture.uScale = 25;
         groundMat.diffuseTexture.vScale = 25;
-        groundMat.specularColor = new BABYLON.Color3(0.5, 0.3, 0.3);
-        groundMat.specularPower = 32;
+        groundMat.specularColor = new BABYLON.Color3(0.12, 0.08, 0.08); // subtle
+        groundMat.specularPower = 48;
         ground.material = groundMat;
-        ground.isPickable = false;
+        ground.isPickable = true;
+        ground.checkCollisions = true;
 
-        // ---------- CRATES (glossy so bolt light reflects) ----------
+        // ---------- CRATES (obstacles: block movement + shots, small ones jumpable) ----------
         const crateMat = new BABYLON.StandardMaterial('crateMat', scene);
         crateMat.diffuseColor = new BABYLON.Color3(0.25, 0.25, 0.3);
-        crateMat.specularColor = new BABYLON.Color3(0.6, 0.4, 0.4);
+        crateMat.specularColor = new BABYLON.Color3(0.4, 0.3, 0.3);
         crateMat.specularPower = 24;
-        for (let i = 0; i < 25; i++) {
-            const size = 1 + Math.random() * 2;
+        const crates = [];
+        for (let i = 0; i < 50; i++) {
+            // Mix of small jumpable crates (~1m) and big cover (2-3m)
+            const size = Math.random() < 0.5 ? 0.9 + Math.random() * 0.3 : 1.8 + Math.random() * 1.2;
             const crate = BABYLON.MeshBuilder.CreateBox('crate' + i, { size }, scene);
-            crate.position = new BABYLON.Vector3((Math.random() - 0.5) * 120, size / 2, (Math.random() - 0.5) * 120);
+            let px, pz;
+            do {
+                px = (Math.random() - 0.5) * 140;
+                pz = (Math.random() - 0.5) * 140;
+            } while (Math.hypot(px - 0, pz - (-8)) < 5); // keep spawn area clear
+            crate.position = new BABYLON.Vector3(px, size / 2, pz);
             crate.rotation.y = Math.random() * Math.PI;
             crate.material = crateMat;
-            crate.isPickable = false;
+            crate.isPickable = true;
+            crate.checkCollisions = true;
+            crate.metadata = { crate: true };
+            crates.push(crate);
         }
 
         // ---------- GUN ----------
@@ -162,12 +176,15 @@
 
         // ---------- SOUND ----------
         let audioCtx = null;
-        function blasterSound() {
+        function blasterSound(heatFrac) {
             if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
             const o = audioCtx.createOscillator(), g = audioCtx.createGain();
             o.type = 'sawtooth';
-            o.frequency.setValueAtTime(900, audioCtx.currentTime);
-            o.frequency.exponentialRampToValueAtTime(120, audioCtx.currentTime + 0.18);
+            // Pitch climbs as the blaster heats up
+            const startF = 900 + heatFrac * 550;
+            const endF = 120 + heatFrac * 180;
+            o.frequency.setValueAtTime(startF, audioCtx.currentTime);
+            o.frequency.exponentialRampToValueAtTime(endF, audioCtx.currentTime + 0.18);
             g.gain.setValueAtTime(0.25, audioCtx.currentTime);
             g.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.2);
             o.connect(g); g.connect(audioCtx.destination);
@@ -199,11 +216,11 @@
         // ---------- STATE ----------
         let score = 0, wave = 1, gameOver = false;
 
-        // Overheat system (Battlefront style)
-        let heat = 0;                 // 0..100
-        const HEAT_PER_SHOT = 9;
-        const COOL_RATE = 28;         // per second while not overheated
-        const OVERHEAT_COOL_RATE = 20; // slower recovery as penalty
+        // Overheat (tighter tuning: ~7 shots to redline, slower recovery)
+        let heat = 0;
+        const HEAT_PER_SHOT = 14;
+        const COOL_RATE = 18;
+        const OVERHEAT_COOL_RATE = 12;
         let overheated = false;
 
         let troopers = [];
@@ -278,7 +295,7 @@
             if (gameOver || !container) return;
             if (overheated) return;
 
-            // Fire
+            const heatFrac = heat / 100;
             heat += HEAT_PER_SHOT;
             if (heat >= 100) {
                 heat = 100;
@@ -287,25 +304,33 @@
                 overheatSound();
             }
 
-            blasterSound();
+            blasterSound(heatFrac);
 
             muzzleMat.alpha = 1;
             muzzleLight.intensity = 3;
             recoilT = 1;
             setTimeout(() => { muzzleMat.alpha = 0; muzzleLight.intensity = 0; }, 60);
 
+            // Aim-corrected firing: bolt flies from muzzle to whatever
+            // is under the crosshair, so it lands on the dot
+            const aimRay = camera.getForwardRay(500);
+            const aimHit = scene.pickWithRay(aimRay, m => m.isPickable && m.metadata && (m.metadata.trooper || m.metadata.crate));
+            const targetPoint = (aimHit && aimHit.hit)
+                ? aimHit.pickedPoint
+                : camera.position.add(aimRay.direction.scale(300));
+
             const bolt = boltTemplate.clone('bolt');
             bolt.setEnabled(true);
             bolt.position = muzzle.getAbsolutePosition().clone();
-            const direction = camera.getForwardRay(1).direction.normalize();
+            const direction = targetPoint.subtract(bolt.position).normalize();
             bolt.lookAt(bolt.position.add(direction));
 
             const boltLight = new BABYLON.PointLight('boltLight', BABYLON.Vector3.Zero(), scene);
             boltLight.parent = bolt;
             boltLight.diffuse = new BABYLON.Color3(1, 0.25, 0.12);
             boltLight.specular = new BABYLON.Color3(1, 0.3, 0.2);
-            boltLight.intensity = 6;
-            boltLight.range = 15;
+            boltLight.intensity = 3;
+            boltLight.range = 9;
 
             bolts.push({ mesh: bolt, light: boltLight, direction, distanceLeft: 150 });
         });
@@ -357,12 +382,12 @@
             const flash = new BABYLON.PointLight('flash', position.clone(), scene);
             flash.diffuse = new BABYLON.Color3(1, 0.4, 0.15);
             flash.specular = new BABYLON.Color3(1, 0.5, 0.3);
-            flash.intensity = 12;
-            flash.range = 16;
+            flash.intensity = 10;
+            flash.range = 12;
             let life = 1;
             const obs = scene.onBeforeRenderObservable.add(() => {
                 life -= engine.getDeltaTime() / 150;
-                flash.intensity = 12 * Math.max(0, life);
+                flash.intensity = 10 * Math.max(0, life);
                 if (life <= 0) {
                     scene.onBeforeRenderObservable.remove(obs);
                     flash.dispose();
@@ -389,10 +414,39 @@
             setTimeout(() => { ps.stop(); setTimeout(() => ps.dispose(), 800); }, 200);
         }
 
+        // Small spark when a bolt hits a crate
+        function crateImpact(position) {
+            impactFlash(position);
+            const ps = new BABYLON.ParticleSystem('crateSparks', 40, scene);
+            ps.particleTexture = new BABYLON.Texture('https://assets.babylonjs.com/textures/flare.png', scene);
+            ps.emitter = position.clone();
+            ps.color1 = new BABYLON.Color4(1, 0.8, 0.3, 1);
+            ps.color2 = new BABYLON.Color4(1, 0.3, 0.1, 1);
+            ps.colorDead = new BABYLON.Color4(0.1, 0, 0, 0);
+            ps.minSize = 0.04; ps.maxSize = 0.15;
+            ps.minLifeTime = 0.1; ps.maxLifeTime = 0.35;
+            ps.emitRate = 600;
+            ps.direction1 = new BABYLON.Vector3(-1.5, 1, -1.5);
+            ps.direction2 = new BABYLON.Vector3(1.5, 2.5, 1.5);
+            ps.gravity = new BABYLON.Vector3(0, -9.8, 0);
+            ps.start();
+            setTimeout(() => { ps.stop(); setTimeout(() => ps.dispose(), 500); }, 120);
+        }
+
         let shakeT = 0;
         function screenShake() { shakeT = 1; }
         let bobT = 0;
         const lastPos = camera.position.clone();
+
+        // Find the surface height under the player (ground or crate tops)
+        function surfaceYUnderPlayer() {
+            const ray = new BABYLON.Ray(
+                new BABYLON.Vector3(camera.position.x, camera.position.y + 0.1, camera.position.z),
+                new BABYLON.Vector3(0, -1, 0), 20
+            );
+            const hit = scene.pickWithRay(ray, m => m === ground || (m.metadata && m.metadata.crate));
+            return (hit && hit.hit) ? hit.pickedPoint.y : 0;
+        }
 
         // ---------- GAME LOOP ----------
         scene.onBeforeRenderObservable.add(() => {
@@ -411,16 +465,20 @@
             }
             heatBar.style.width = heat + '%';
 
-            // Bolts
+            // Bolts (blocked by troopers AND crates)
             for (let i = bolts.length - 1; i >= 0; i--) {
                 const b = bolts[i];
                 const step = BOLT_SPEED * dt;
-                const ray = new BABYLON.Ray(b.mesh.position, b.direction, step + 0.6);
-                const hit = scene.pickWithRay(ray, m => m.isPickable && m.metadata && m.metadata.trooper);
+                const ray = new BABYLON.Ray(b.mesh.position, b.direction, step + 0.7);
+                const hit = scene.pickWithRay(ray, m => m.isPickable && m.metadata && (m.metadata.trooper || m.metadata.crate));
                 if (hit && hit.hit && hit.pickedMesh.metadata) {
-                    const trooper = hit.pickedMesh.metadata.trooper;
-                    if (trooper.alive) killTrooper(trooper, hit.pickedPoint);
-                    impactFlash(b.mesh.position);
+                    if (hit.pickedMesh.metadata.trooper) {
+                        const trooper = hit.pickedMesh.metadata.trooper;
+                        if (trooper.alive) killTrooper(trooper, hit.pickedPoint);
+                        impactFlash(b.mesh.position);
+                    } else {
+                        crateImpact(hit.pickedPoint);
+                    }
                     b.light.dispose(); b.mesh.dispose(); bolts.splice(i, 1); continue;
                 }
                 b.mesh.position.addInPlace(b.direction.scale(step));
@@ -428,9 +486,10 @@
                 if (b.distanceLeft <= 0) { b.light.dispose(); b.mesh.dispose(); bolts.splice(i, 1); }
             }
 
-            // ADS
+            // ADS: FOV, gun position, and reduced sensitivity
             const targetFov = isADS ? ADS_FOV : BASE_FOV;
             camera.fov += (targetFov - camera.fov) * Math.min(1, dt * 12);
+            camera.angularSensibility = isADS ? ADS_SENS : BASE_SENS;
             const targetGun = isADS ? GUN_ADS : GUN_HIP;
             gun.position = BABYLON.Vector3.Lerp(gun.position, targetGun, Math.min(1, dt * 12));
 
@@ -444,24 +503,35 @@
             }
             lastPos.set(camera.position.x, camera.position.y, camera.position.z);
 
-            // Recoil
+            // Recoil: backward slide + upward kick of the gun
             if (recoilT > 0) {
                 recoilT = Math.max(0, recoilT - dt * 8);
                 gun.position.z -= recoilT * 0.15;
+                gun.rotation.x = -recoilT * 0.09;
+            } else {
+                gun.rotation.x = 0;
             }
 
-            // Jump + crouch
-            const targetH = crouching ? CROUCH_H : STAND_H;
+            // Jump + crouch + standing on crates
+            const surfaceY = surfaceYUnderPlayer();
+            const targetH = surfaceY + (crouching ? CROUCH_H : STAND_H);
+
             if (!grounded) {
                 velY -= 14 * dt;
                 camera.position.y += velY * dt;
-                if (camera.position.y <= targetH) {
+                if (velY <= 0 && camera.position.y <= targetH) {
                     camera.position.y = targetH;
                     velY = 0;
                     grounded = true;
                 }
             } else {
-                camera.position.y += (targetH - camera.position.y) * Math.min(1, dt * 10);
+                // Walked off an edge?
+                if (camera.position.y - targetH > 0.1) {
+                    grounded = false;
+                    velY = 0;
+                } else {
+                    camera.position.y += (targetH - camera.position.y) * Math.min(1, dt * 10);
+                }
             }
             camera.speed = crouching ? 0.15 : (isADS ? 0.18 : (sprinting ? 0.6 : 0.35));
 
