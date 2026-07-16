@@ -274,7 +274,9 @@
             if (e.button === 2) isADS = false;
         });
 
+        let sprinting = false;
         document.addEventListener('keydown', e => {
+            if (e.code === 'ShiftLeft') sprinting = true;
             if (e.code === 'Space' && grounded) {
                 velY = 5.5;
                 grounded = false;
@@ -284,6 +286,7 @@
         });
         document.addEventListener('keyup', e => {
             if (e.code === 'KeyC') crouching = false;
+            if (e.code === 'ShiftLeft') sprinting = false;
         });
 
         function reload() {
@@ -344,6 +347,8 @@
         }
 
         let shakeT = 0;
+        let bobT = 0;
+        const lastPos = camera.position.clone();
         function screenShake() { shakeT = 1; }
         let recoilT = 0;
 
@@ -372,7 +377,15 @@
             camera.fov += (targetFov - camera.fov) * Math.min(1, dt * 12);
             const targetGun = isADS ? GUN_ADS : GUN_HIP;
             gun.position = BABYLON.Vector3.Lerp(gun.position, targetGun, Math.min(1, dt * 12));
-
+		// Movement bob
+            const horizMoved = Math.hypot(camera.position.x - lastPos.x, camera.position.z - lastPos.z);
+            if (horizMoved > 0.001 && grounded) {
+                bobT += dt * (sprinting ? 13 : 8);
+                gun.position.y += Math.sin(bobT) * (sprinting ? 0.03 : 0.015);
+                gun.position.x += Math.cos(bobT * 0.5) * 0.01;
+                camera.position.y += Math.sin(bobT) * 0.015;
+            }
+            lastPos.set(camera.position.x, camera.position.y, camera.position.z);
             // Recoil (applied on top of ADS lerp)
             if (recoilT > 0) {
                 recoilT = Math.max(0, recoilT - dt * 8);
@@ -392,7 +405,7 @@
             } else {
                 camera.position.y += (targetH - camera.position.y) * Math.min(1, dt * 10);
             }
-            camera.speed = crouching ? 0.12 : (isADS ? 0.15 : 0.25);
+            camera.speed = crouching ? 0.15 : (isADS ? 0.18 : (sprinting ? 0.6 : 0.35));
 
             // Shake
             if (shakeT > 0) {
@@ -414,6 +427,7 @@
                 if (distance < 1.5) { endGame(); return; }
                 t.root.position.addInPlace(toPlayer.normalize().scale(speed));
                 t.root.lookAt(new BABYLON.Vector3(camera.position.x, 0, camera.position.z));
+t.root.rotate(BABYLON.Axis.Y, Math.PI / 2, BABYLON.Space.LOCAL);
 
                 // Procedural motion if model has no animations:
                 if (!hasRunAnim) {
