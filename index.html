@@ -5,63 +5,323 @@
     <script src="https://unpkg.com/babylonjs@5.0.0/babylon.js"></script>
     <script src="https://unpkg.com/babylonjs-loaders@5.0.0/babylonjs.loaders.min.js"></script>
     <style>
-        body { margin: 0; background: #000; }
+        body { margin: 0; background: #000; overflow: hidden; }
         canvas { display: block; }
-        #ui { position: absolute; top: 20px; left: 20px; color: #0f0; font-family: monospace; }
-        #crosshair { position: absolute; top: 50%; left: 50%; width: 20px; height: 20px; border: 2px solid #0f0; transform: translate(-50%, -50%); }
+        #ui { position: absolute; top: 20px; left: 20px; color: #0f0; font-family: monospace; font-size: 16px; text-shadow: 0 0 8px #0f0; pointer-events: none; }
+        #crosshair { position: absolute; top: 50%; left: 50%; width: 20px; height: 20px; border: 2px solid #0f0; transform: translate(-50%, -50%); pointer-events: none; }
+        #crosshair::after { content: ''; position: absolute; top: 50%; left: 50%; width: 3px; height: 3px; background: #0f0; transform: translate(-50%, -50%); }
+        #reload-msg { position: absolute; top: 60%; left: 50%; transform: translate(-50%, -50%); color: #ff0; font-family: monospace; font-size: 20px; display: none; }
+        #gameover { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); display: none; flex-direction: column; align-items: center; justify-content: center; color: #f00; font-family: monospace; }
+        #gameover h1 { font-size: 48px; text-shadow: 0 0 20px #f00; }
+        #gameover p { color: #0f0; font-size: 20px; }
+        #restart { background: #0f0; color: #000; border: none; padding: 12px 30px; font-family: monospace; font-size: 18px; cursor: pointer; margin-top: 20px; }
+        #start-hint { position: absolute; bottom: 30px; left: 50%; transform: translateX(-50%); color: #0f0; font-family: monospace; opacity: 0.7; }
     </style>
 </head>
 <body>
     <canvas id="canvas"></canvas>
-    <div id="ui"><div>HITS: <span id="hits">0</span></div></div>
+    <div id="ui">
+        <div>SCORE: <span id="score">0</span></div>
+        <div>WAVE: <span id="wave">1</span></div>
+        <div>AMMO: <span id="ammo">30</span></div>
+    </div>
     <div id="crosshair"></div>
+    <div id="reload-msg">RELOADING...</div>
+    <div id="start-hint">Click to shoot &bull; WASD to move &bull; R to reload</div>
+    <div id="gameover">
+        <h1>GAME OVER</h1>
+        <p>Score: <span id="final-score">0</span></p>
+        <button id="restart" onclick="location.reload()">RESTART</button>
+    </div>
 
     <script>
         const canvas = document.getElementById('canvas');
         const engine = new BABYLON.Engine(canvas, true);
         const scene = new BABYLON.Scene(engine);
-        
-        const camera = new BABYLON.UniversalCamera('camera', new BABYLON.Vector3(0, 0, -5));
+        scene.clearColor = new BABYLON.Color3(0.01, 0.01, 0.03);
+
+        // ---------- CAMERA ----------
+        const camera = new BABYLON.UniversalCamera('camera', new BABYLON.Vector3(0, 1.7, -8));
         camera.attachControl(canvas, true);
-        camera.speed = 0.1;
-        
-        const light = new BABYLON.HemisphericLight('light', new BABYLON.Vector3(0, 1, 0), scene);
-        light.intensity = 0.8;
-        
-        scene.clearColor = new BABYLON.Color3(0, 0, 0);
-        
-        let hits = 0;
-        let stormtrooper;
-        
-        // Load the stormtrooper model
+        camera.speed = 0.15;
+        camera.minZ = 0.05;
+        camera.keysUp = [87]; camera.keysDown = [83];
+        camera.keysLeft = [65]; camera.keysRight = [68];
+
+        // ---------- LIGHTS ----------
+        const hemi = new BABYLON.HemisphericLight('hemi', new BABYLON.Vector3(0, 1, 0), scene);
+        hemi.intensity = 0.8;
+        const dir = new BABYLON.DirectionalLight('dir', new BABYLON.Vector3(0, -1, 1), scene);
+        dir.intensity = 0.4;
+
+        // ---------- GROUND (subtle grid so movement is visible) ----------
+        const ground = BABYLON.MeshBuilder.CreateGround('ground', { width: 100, height: 100 }, scene);
+        const groundMat = new BABYLON.StandardMaterial('gmat', scene);
+        groundMat.diffuseColor = new BABYLON.Color3(0.05, 0.05, 0.08);
+        groundMat.specularColor = new BABYLON.Color3(0, 0, 0);
+        ground.material = groundMat;
+        ground.isPickable = false;
+
+        // ---------- PROCEDURAL BLASTER GUN (attached to camera) ----------
+        const gun = new BABYLON.TransformNode('gun', scene);
+        gun.parent = camera;
+        gun.position = new BABYLON.Vector3(0.35, -0.3, 1.2);
+
+        const gunMat = new BABYLON.StandardMaterial('gunMat', scene);
+        gunMat.diffuseColor = new BABYLON.Color3(0.15, 0.15, 0.18);
+        gunMat.specularColor = new BABYLON.Color3(0.3, 0.3, 0.3);
+
+        const barrel = BABYLON.MeshBuilder.CreateCylinder('barrel', { height: 0.7, diameter: 0.07 }, scene);
+        barrel.rotation.x = Math.PI / 2;
+        barrel.position.z = 0.35;
+        barrel.material = gunMat;
+        barrel.parent = gun;
+        barrel.isPickable = false;
+
+        const body = BABYLON.MeshBuilder.CreateBox('gunbody', { width: 0.12, height: 0.18, depth: 0.45 }, scene);
+        body.position.z = 0;
+        body.material = gunMat;
+        body.parent = gun;
+        body.isPickable = false;
+
+        const grip = BABYLON.MeshBuilder.CreateBox('grip', { width: 0.09, height: 0.25, depth: 0.1 }, scene);
+        grip.position.y = -0.18;
+        grip.position.z = -0.12;
+        grip.rotation.x = 0.3;
+        grip.material = gunMat;
+        grip.parent = gun;
+        grip.isPickable = false;
+
+        // Muzzle flash light + sphere
+        const muzzle = BABYLON.MeshBuilder.CreateSphere('muzzle', { diameter: 0.12 }, scene);
+        muzzle.position.z = 0.72;
+        muzzle.parent = gun;
+        muzzle.isPickable = false;
+        const muzzleMat = new BABYLON.StandardMaterial('muzzleMat', scene);
+        muzzleMat.emissiveColor = new BABYLON.Color3(1, 0.9, 0.4);
+        muzzleMat.alpha = 0;
+        muzzle.material = muzzleMat;
+
+        const muzzleLight = new BABYLON.PointLight('muzzleLight', BABYLON.Vector3.Zero(), scene);
+        muzzleLight.parent = muzzle;
+        muzzleLight.diffuse = new BABYLON.Color3(1, 0.8, 0.3);
+        muzzleLight.intensity = 0;
+
+        // ---------- SOUND (Web Audio, no libraries) ----------
+        let audioCtx = null;
+        function blasterSound() {
+            if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            const o = audioCtx.createOscillator();
+            const g = audioCtx.createGain();
+            o.type = 'sawtooth';
+            o.frequency.setValueAtTime(900, audioCtx.currentTime);
+            o.frequency.exponentialRampToValueAtTime(120, audioCtx.currentTime + 0.18);
+            g.gain.setValueAtTime(0.25, audioCtx.currentTime);
+            g.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.2);
+            o.connect(g); g.connect(audioCtx.destination);
+            o.start(); o.stop(audioCtx.currentTime + 0.2);
+        }
+        function hitSound() {
+            if (!audioCtx) return;
+            const o = audioCtx.createOscillator();
+            const g = audioCtx.createGain();
+            o.type = 'square';
+            o.frequency.setValueAtTime(200, audioCtx.currentTime);
+            o.frequency.exponentialRampToValueAtTime(50, audioCtx.currentTime + 0.25);
+            g.gain.setValueAtTime(0.3, audioCtx.currentTime);
+            g.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.3);
+            o.connect(g); g.connect(audioCtx.destination);
+            o.start(); o.stop(audioCtx.currentTime + 0.3);
+        }
+
+        // ---------- GAME STATE ----------
+        let score = 0, wave = 1, ammo = 30, reloading = false, gameOver = false;
+        let troopers = []; // { root, meshes, alive }
+        let trooperTemplate = null;
+
+        const scoreEl = document.getElementById('score');
+        const waveEl = document.getElementById('wave');
+        const ammoEl = document.getElementById('ammo');
+        const reloadMsg = document.getElementById('reload-msg');
+
+        // ---------- LOAD STORMTROOPER ----------
         BABYLON.SceneLoader.ImportMesh('', './', 'stormtrooper.glb', scene, function(meshes) {
-            stormtrooper = meshes[0];
-            stormtrooper.position.z = 10;
+            trooperTemplate = meshes[0];
+            trooperTemplate.setEnabled(false); // hide the template
+            spawnWave();
         });
-        
+
+        function spawnTrooper() {
+            const clone = trooperTemplate.instantiateHierarchy();
+            clone.setEnabled(true);
+            const angle = Math.random() * Math.PI * 2;
+            const dist = 15 + Math.random() * 10;
+            clone.position = new BABYLON.Vector3(
+                camera.position.x + Math.sin(angle) * dist,
+                0,
+                camera.position.z + Math.cos(angle) * dist
+            );
+            const childMeshes = clone.getChildMeshes();
+            childMeshes.forEach(m => { m.isPickable = true; });
+            const trooper = { root: clone, meshes: childMeshes, alive: true };
+            childMeshes.forEach(m => m.metadata = { trooper });
+            troopers.push(trooper);
+        }
+
+        function spawnWave() {
+            const count = Math.min(3 + wave - 1, 8);
+            for (let i = 0; i < count; i++) spawnTrooper();
+        }
+
+        // ---------- SHOOTING ----------
+        let recoilT = 0;
         canvas.addEventListener('click', () => {
-            if (!stormtrooper) return;
-            
-            const origin = camera.position;
-            const direction = BABYLON.Vector3.Normalize(camera.getTarget().subtract(origin));
-            const ray = new BABYLON.Ray(origin, direction, 100);
-            const hit = scene.pickWithRay(ray);
-            
-            if (hit && hit.hit && hit.pickedMesh === stormtrooper) {
-                hits++;
-                document.getElementById('hits').textContent = hits;
-                
-                // Flash on hit
-                const origColor = hit.pickedMesh.material?.emissiveColor?.clone() || new BABYLON.Color3(1, 1, 1);
-                if (hit.pickedMesh.material) {
-                    hit.pickedMesh.material.emissiveColor = new BABYLON.Color3(1, 0, 0);
-                    setTimeout(() => {
-                        hit.pickedMesh.material.emissiveColor = origColor;
-                    }, 100);
-                }
+            if (gameOver || reloading || !trooperTemplate) return;
+            if (ammo <= 0) { reload(); return; }
+
+            ammo--;
+            ammoEl.textContent = ammo;
+            blasterSound();
+
+            // Muzzle flash + recoil
+            muzzleMat.alpha = 1;
+            muzzleLight.intensity = 3;
+            recoilT = 1;
+            setTimeout(() => { muzzleMat.alpha = 0; muzzleLight.intensity = 0; }, 60);
+
+            // Raycast from screen center
+            const ray = camera.getForwardRay(200);
+            const hit = scene.pickWithRay(ray, m => m.isPickable && m.metadata && m.metadata.trooper);
+
+            if (hit && hit.hit && hit.pickedMesh.metadata) {
+                const trooper = hit.pickedMesh.metadata.trooper;
+                if (trooper.alive) killTrooper(trooper, hit.pickedPoint);
+            }
+
+            if (ammo <= 0) reload();
+        });
+
+        function reload() {
+            reloading = true;
+            reloadMsg.style.display = 'block';
+            setTimeout(() => {
+                ammo = 30;
+                ammoEl.textContent = ammo;
+                reloading = false;
+                reloadMsg.style.display = 'none';
+            }, 1500);
+        }
+
+        document.addEventListener('keydown', e => {
+            if (e.key === 'r' || e.key === 'R') {
+                if (!reloading && ammo < 30) reload();
             }
         });
-        
+
+        // ---------- KILL + EXPLOSION ----------
+        function killTrooper(trooper, hitPoint) {
+            trooper.alive = false;
+            hitSound();
+            screenShake();
+            sparkExplosion(hitPoint || trooper.root.position);
+
+            score++;
+            scoreEl.textContent = score;
+
+            // Wave up every 5 kills
+            if (score % 5 === 0) {
+                wave++;
+                waveEl.textContent = wave;
+            }
+
+            // Ragdoll-ish: tip over, sink, then dispose
+            const root = trooper.root;
+            const tipAnim = new BABYLON.Animation('tip', 'rotation.x', 60,
+                BABYLON.Animation.ANIMATIONTYPE_FLOAT, BABYLON.Animation.ANIMATIONLOOPMODE_CONSTANT);
+            tipAnim.setKeys([{ frame: 0, value: 0 }, { frame: 30, value: Math.PI / 2 }]);
+            root.animations = [tipAnim];
+            scene.beginAnimation(root, 0, 30, false);
+
+            setTimeout(() => {
+                root.dispose();
+                troopers = troopers.filter(t => t !== trooper);
+                // Keep the pressure on: respawn
+                spawnTrooper();
+                if (score % 5 === 0) spawnTrooper();
+            }, 1000);
+        }
+
+        function sparkExplosion(position) {
+            const ps = new BABYLON.ParticleSystem('sparks', 150, scene);
+            ps.particleTexture = new BABYLON.Texture('https://assets.babylonjs.com/textures/flare.png', scene);
+            ps.emitter = position.clone();
+            ps.minEmitBox = new BABYLON.Vector3(-0.2, 0, -0.2);
+            ps.maxEmitBox = new BABYLON.Vector3(0.2, 1.5, 0.2);
+            ps.color1 = new BABYLON.Color4(1, 0.9, 0.3, 1);
+            ps.color2 = new BABYLON.Color4(1, 0.4, 0.1, 1);
+            ps.colorDead = new BABYLON.Color4(0.2, 0, 0, 0);
+            ps.minSize = 0.05; ps.maxSize = 0.25;
+            ps.minLifeTime = 0.2; ps.maxLifeTime = 0.6;
+            ps.emitRate = 500;
+            ps.direction1 = new BABYLON.Vector3(-2, 2, -2);
+            ps.direction2 = new BABYLON.Vector3(2, 4, 2);
+            ps.gravity = new BABYLON.Vector3(0, -9.8, 0);
+            ps.start();
+            setTimeout(() => { ps.stop(); setTimeout(() => ps.dispose(), 800); }, 200);
+        }
+
+        // ---------- SCREEN SHAKE ----------
+        let shakeT = 0;
+        function screenShake() { shakeT = 1; }
+
+        // ---------- GAME LOOP ----------
+        scene.onBeforeRenderObservable.add(() => {
+            const dt = engine.getDeltaTime() / 1000;
+
+            // Recoil animation
+            if (recoilT > 0) {
+                recoilT = Math.max(0, recoilT - dt * 8);
+                gun.position.z = 1.2 - recoilT * 0.15;
+            }
+
+            // Screen shake
+            if (shakeT > 0) {
+                shakeT = Math.max(0, shakeT - dt * 5);
+                camera.rotation.z = (Math.random() - 0.5) * 0.02 * shakeT;
+            } else {
+                camera.rotation.z = 0;
+            }
+
+            // Lock camera height (no flying)
+            camera.position.y = 1.7;
+
+            if (gameOver) return;
+
+            // Troopers walk toward player
+            const speed = (0.8 + wave * 0.15) * dt;
+            troopers.forEach(t => {
+                if (!t.alive) return;
+                const toPlayer = camera.position.subtract(t.root.position);
+                toPlayer.y = 0;
+                const distance = toPlayer.length();
+
+                if (distance < 1.5) {
+                    endGame();
+                    return;
+                }
+                const move = toPlayer.normalize().scale(speed);
+                t.root.position.addInPlace(move);
+                // Face the player
+                t.root.lookAt(new BABYLON.Vector3(camera.position.x, 0, camera.position.z));
+            });
+        });
+
+        function endGame() {
+            gameOver = true;
+            document.getElementById('final-score').textContent = score;
+            document.getElementById('gameover').style.display = 'flex';
+        }
+
         engine.runRenderLoop(() => scene.render());
         window.addEventListener('resize', () => engine.resize());
     </script>
