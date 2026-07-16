@@ -29,7 +29,7 @@
     <div id="crosshair"></div>
     <div id="reload-msg">RELOADING...</div>
     <div id="lock-hint">CLICK TO PLAY</div>
-    <div id="start-hint">WASD move &bull; SPACE jump &bull; C crouch &bull; RIGHT-CLICK aim &bull; R reload &bull; ESC free mouse</div>
+    <div id="start-hint">WASD move &bull; SHIFT sprint &bull; SPACE jump &bull; C crouch &bull; RIGHT-CLICK aim &bull; R reload &bull; ESC free mouse</div>
     <div id="gameover">
         <h1>GAME OVER</h1>
         <p>Score: <span id="final-score">0</span></p>
@@ -47,7 +47,7 @@
         const STAND_H = 1.7, CROUCH_H = 0.9;
         const camera = new BABYLON.UniversalCamera('camera', new BABYLON.Vector3(0, STAND_H, -8), scene);
         camera.attachControl(canvas, true);
-        camera.speed = 0.25;
+        camera.speed = 0.35;
         camera.minZ = 0.05;
         camera.fov = BASE_FOV;
         camera.inertia = 0.5;
@@ -138,10 +138,14 @@
         muzzleLight.diffuse = new BABYLON.Color3(1, 0.8, 0.3);
         muzzleLight.intensity = 0;
 
-        // ---------- BOLTS ----------
+        // ---------- BOLTS (glowing, with dynamic light) ----------
+        const glow = new BABYLON.GlowLayer('glow', scene);
+        glow.intensity = 1.2;
+
         const boltMat = new BABYLON.StandardMaterial('boltMat', scene);
-        boltMat.emissiveColor = new BABYLON.Color3(1, 0.1, 0.1);
+        boltMat.emissiveColor = new BABYLON.Color3(1, 0.15, 0.1);
         boltMat.disableLighting = true;
+
         const boltTemplate = BABYLON.MeshBuilder.CreateCylinder('boltTemplate', { height: 1.2, diameter: 0.045 }, scene);
         boltTemplate.rotation.x = Math.PI / 2;
         boltTemplate.bakeCurrentTransformIntoVertices();
@@ -149,7 +153,7 @@
         boltTemplate.isPickable = false;
         boltTemplate.setEnabled(false);
         let bolts = [];
-        const BOLT_SPEED = 60;
+        const BOLT_SPEED = 120;
 
         // ---------- SOUND ----------
         let audioCtx = null;
@@ -189,11 +193,10 @@
         const ammoEl = document.getElementById('ammo');
         const reloadMsg = document.getElementById('reload-msg');
 
-        // ---------- LOAD MODEL AS ASSET CONTAINER ----------
+        // ---------- LOAD MODEL ----------
         BABYLON.SceneLoader.LoadAssetContainer('./', 'stormtrooper.glb', scene, function(loaded) {
             container = loaded;
 
-            // Measure height for auto-scale
             let min = new BABYLON.Vector3(Infinity, Infinity, Infinity);
             let max = new BABYLON.Vector3(-Infinity, -Infinity, -Infinity);
             container.meshes.forEach(m => {
@@ -222,11 +225,10 @@
                 camera.position.z + Math.cos(angle) * dist
             );
 
-            // Play run/walk animation if the model has one
             let anim = null;
             if (inst.animationGroups.length > 0) {
                 anim = inst.animationGroups.find(a => /run|walk|move|sprint/i.test(a.name)) || inst.animationGroups[0];
-                anim.start(true); // loop
+                anim.start(true);
             }
 
             const childMeshes = root.getChildMeshes();
@@ -241,9 +243,11 @@
             for (let i = 0; i < count; i++) spawnTrooper();
         }
 
-        // ---------- INPUT: shoot (left), ADS (right), jump, crouch ----------
+        // ---------- INPUT ----------
         let isADS = false;
         let velY = 0, grounded = true, crouching = false;
+        let sprinting = false;
+        let recoilT = 0;
 
         canvas.addEventListener('mousedown', e => {
             if (!document.pointerLockElement) return;
@@ -266,7 +270,14 @@
             bolt.position = muzzle.getAbsolutePosition().clone();
             const direction = camera.getForwardRay(1).direction.normalize();
             bolt.lookAt(bolt.position.add(direction));
-            bolts.push({ mesh: bolt, direction, distanceLeft: 150 });
+
+            const boltLight = new BABYLON.PointLight('boltLight', BABYLON.Vector3.Zero(), scene);
+            boltLight.parent = bolt;
+            boltLight.diffuse = new BABYLON.Color3(1, 0.2, 0.1);
+            boltLight.intensity = 2.5;
+            boltLight.range = 8;
+
+            bolts.push({ mesh: bolt, light: boltLight, direction, distanceLeft: 150 });
 
             if (ammo <= 0) reload();
         });
@@ -274,7 +285,6 @@
             if (e.button === 2) isADS = false;
         });
 
-        let sprinting = false;
         document.addEventListener('keydown', e => {
             if (e.code === 'ShiftLeft') sprinting = true;
             if (e.code === 'Space' && grounded) {
@@ -327,6 +337,23 @@
             }, 1000);
         }
 
+        // Bright flash at impact that lights the area briefly
+        function impactFlash(position) {
+            const flash = new BABYLON.PointLight('flash', position.clone(), scene);
+            flash.diffuse = new BABYLON.Color3(1, 0.4, 0.15);
+            flash.intensity = 8;
+            flash.range = 12;
+            let life = 1;
+            const obs = scene.onBeforeRenderObservable.add(() => {
+                life -= engine.getDeltaTime() / 150;
+                flash.intensity = 8 * Math.max(0, life);
+                if (life <= 0) {
+                    scene.onBeforeRenderObservable.remove(obs);
+                    flash.dispose();
+                }
+            });
+        }
+
         function sparkExplosion(position) {
             const ps = new BABYLON.ParticleSystem('sparks', 150, scene);
             ps.particleTexture = new BABYLON.Texture('https://assets.babylonjs.com/textures/flare.png', scene);
@@ -336,9 +363,9 @@
             ps.color1 = new BABYLON.Color4(1, 0.9, 0.3, 1);
             ps.color2 = new BABYLON.Color4(1, 0.4, 0.1, 1);
             ps.colorDead = new BABYLON.Color4(0.2, 0, 0, 0);
-            ps.minSize = 0.05; ps.maxSize = 0.25;
+            ps.minSize = 0.08; ps.maxSize = 0.4;
             ps.minLifeTime = 0.2; ps.maxLifeTime = 0.6;
-            ps.emitRate = 500;
+            ps.emitRate = 1200;
             ps.direction1 = new BABYLON.Vector3(-2, 2, -2);
             ps.direction2 = new BABYLON.Vector3(2, 4, 2);
             ps.gravity = new BABYLON.Vector3(0, -9.8, 0);
@@ -347,10 +374,9 @@
         }
 
         let shakeT = 0;
+        function screenShake() { shakeT = 1; }
         let bobT = 0;
         const lastPos = camera.position.clone();
-        function screenShake() { shakeT = 1; }
-        let recoilT = 0;
 
         // ---------- GAME LOOP ----------
         scene.onBeforeRenderObservable.add(() => {
@@ -365,19 +391,21 @@
                 if (hit && hit.hit && hit.pickedMesh.metadata) {
                     const trooper = hit.pickedMesh.metadata.trooper;
                     if (trooper.alive) killTrooper(trooper, hit.pickedPoint);
-                    b.mesh.dispose(); bolts.splice(i, 1); continue;
+                    impactFlash(b.mesh.position);
+                    b.light.dispose(); b.mesh.dispose(); bolts.splice(i, 1); continue;
                 }
                 b.mesh.position.addInPlace(b.direction.scale(step));
                 b.distanceLeft -= step;
-                if (b.distanceLeft <= 0) { b.mesh.dispose(); bolts.splice(i, 1); }
+                if (b.distanceLeft <= 0) { b.light.dispose(); b.mesh.dispose(); bolts.splice(i, 1); }
             }
 
-            // ADS: smooth FOV + gun position
+            // ADS
             const targetFov = isADS ? ADS_FOV : BASE_FOV;
             camera.fov += (targetFov - camera.fov) * Math.min(1, dt * 12);
             const targetGun = isADS ? GUN_ADS : GUN_HIP;
             gun.position = BABYLON.Vector3.Lerp(gun.position, targetGun, Math.min(1, dt * 12));
-		// Movement bob
+
+            // Movement bob
             const horizMoved = Math.hypot(camera.position.x - lastPos.x, camera.position.z - lastPos.z);
             if (horizMoved > 0.001 && grounded) {
                 bobT += dt * (sprinting ? 13 : 8);
@@ -386,13 +414,14 @@
                 camera.position.y += Math.sin(bobT) * 0.015;
             }
             lastPos.set(camera.position.x, camera.position.y, camera.position.z);
-            // Recoil (applied on top of ADS lerp)
+
+            // Recoil
             if (recoilT > 0) {
                 recoilT = Math.max(0, recoilT - dt * 8);
                 gun.position.z -= recoilT * 0.15;
             }
 
-            // Jump physics + crouch
+            // Jump + crouch
             const targetH = crouching ? CROUCH_H : STAND_H;
             if (!grounded) {
                 velY -= 14 * dt;
@@ -427,13 +456,12 @@
                 if (distance < 1.5) { endGame(); return; }
                 t.root.position.addInPlace(toPlayer.normalize().scale(speed));
                 t.root.lookAt(new BABYLON.Vector3(camera.position.x, 0, camera.position.z));
-t.root.rotate(BABYLON.Axis.Y, Math.PI / 2, BABYLON.Space.LOCAL);
+                t.root.rotate(BABYLON.Axis.Y, -Math.PI / 2, BABYLON.Space.LOCAL);
 
-                // Procedural motion if model has no animations:
                 if (!hasRunAnim) {
                     t.bobPhase += dt * 10;
                     t.root.position.y = Math.abs(Math.sin(t.bobPhase)) * 0.12;
-                    t.root.rotation.x = 0.15; // forward lean
+                    t.root.rotation.x = 0.15;
                 }
             });
         });
