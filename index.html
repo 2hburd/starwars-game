@@ -43,7 +43,7 @@
         // ---------- CAMERA ----------
         const camera = new BABYLON.UniversalCamera('camera', new BABYLON.Vector3(0, 1.7, -8));
         camera.attachControl(canvas, true);
-        camera.speed = 0.15;
+        camera.speed = 0.25;
         camera.minZ = 0.05;
         camera.keysUp = [87]; camera.keysDown = [83];
         camera.keysLeft = [65]; camera.keysRight = [68];
@@ -54,15 +54,44 @@
         const dir = new BABYLON.DirectionalLight('dir', new BABYLON.Vector3(0, -1, 1), scene);
         dir.intensity = 0.4;
 
-        // ---------- GROUND (subtle grid so movement is visible) ----------
-        const ground = BABYLON.MeshBuilder.CreateGround('ground', { width: 100, height: 100 }, scene);
+        // ---------- GROUND WITH VISIBLE GRID ----------
+        const ground = BABYLON.MeshBuilder.CreateGround('ground', { width: 200, height: 200 }, scene);
+        const gridTex = new BABYLON.DynamicTexture('gridTex', 512, scene);
+        const gctx = gridTex.getContext();
+        gctx.fillStyle = '#0a0a12';
+        gctx.fillRect(0, 0, 512, 512);
+        gctx.strokeStyle = '#1a3a5c';
+        gctx.lineWidth = 2;
+        for (let i = 0; i <= 512; i += 64) {
+            gctx.beginPath(); gctx.moveTo(i, 0); gctx.lineTo(i, 512); gctx.stroke();
+            gctx.beginPath(); gctx.moveTo(0, i); gctx.lineTo(512, i); gctx.stroke();
+        }
+        gridTex.update();
         const groundMat = new BABYLON.StandardMaterial('gmat', scene);
-        groundMat.diffuseColor = new BABYLON.Color3(0.05, 0.05, 0.08);
+        groundMat.diffuseTexture = gridTex;
+        groundMat.diffuseTexture.uScale = 25;
+        groundMat.diffuseTexture.vScale = 25;
         groundMat.specularColor = new BABYLON.Color3(0, 0, 0);
         ground.material = groundMat;
         ground.isPickable = false;
 
-        // ---------- PROCEDURAL BLASTER GUN (attached to camera) ----------
+        // ---------- LANDMARK CRATES (motion reference + cover) ----------
+        const crateMat = new BABYLON.StandardMaterial('crateMat', scene);
+        crateMat.diffuseColor = new BABYLON.Color3(0.25, 0.25, 0.3);
+        for (let i = 0; i < 25; i++) {
+            const size = 1 + Math.random() * 2;
+            const crate = BABYLON.MeshBuilder.CreateBox('crate' + i, { size }, scene);
+            crate.position = new BABYLON.Vector3(
+                (Math.random() - 0.5) * 120,
+                size / 2,
+                (Math.random() - 0.5) * 120
+            );
+            crate.rotation.y = Math.random() * Math.PI;
+            crate.material = crateMat;
+            crate.isPickable = false;
+        }
+
+        // ---------- PROCEDURAL BLASTER GUN ----------
         const gun = new BABYLON.TransformNode('gun', scene);
         gun.parent = camera;
         gun.position = new BABYLON.Vector3(0.35, -0.3, 1.2);
@@ -79,7 +108,6 @@
         barrel.isPickable = false;
 
         const body = BABYLON.MeshBuilder.CreateBox('gunbody', { width: 0.12, height: 0.18, depth: 0.45 }, scene);
-        body.position.z = 0;
         body.material = gunMat;
         body.parent = gun;
         body.isPickable = false;
@@ -92,7 +120,6 @@
         grip.parent = gun;
         grip.isPickable = false;
 
-        // Muzzle flash light + sphere
         const muzzle = BABYLON.MeshBuilder.CreateSphere('muzzle', { diameter: 0.12 }, scene);
         muzzle.position.z = 0.72;
         muzzle.parent = gun;
@@ -107,7 +134,22 @@
         muzzleLight.diffuse = new BABYLON.Color3(1, 0.8, 0.3);
         muzzleLight.intensity = 0;
 
-        // ---------- SOUND (Web Audio, no libraries) ----------
+        // ---------- LASER BOLT SETUP (Battlefront-style projectiles) ----------
+        const boltMat = new BABYLON.StandardMaterial('boltMat', scene);
+        boltMat.emissiveColor = new BABYLON.Color3(1, 0.1, 0.1);
+        boltMat.disableLighting = true;
+
+        const boltTemplate = BABYLON.MeshBuilder.CreateCylinder('boltTemplate', { height: 1.2, diameter: 0.045 }, scene);
+        boltTemplate.rotation.x = Math.PI / 2;
+        boltTemplate.bakeCurrentTransformIntoVertices();
+        boltTemplate.material = boltMat;
+        boltTemplate.isPickable = false;
+        boltTemplate.setEnabled(false);
+
+        let bolts = []; // { mesh, direction, distanceLeft }
+        const BOLT_SPEED = 60; // meters per second
+
+        // ---------- SOUND ----------
         let audioCtx = null;
         function blasterSound() {
             if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
@@ -136,26 +178,41 @@
 
         // ---------- GAME STATE ----------
         let score = 0, wave = 1, ammo = 30, reloading = false, gameOver = false;
-        let troopers = []; // { root, meshes, alive }
+        let troopers = [];
         let trooperTemplate = null;
+        const TROOPER_HEIGHT = 1.8; // target height in meters
 
         const scoreEl = document.getElementById('score');
         const waveEl = document.getElementById('wave');
         const ammoEl = document.getElementById('ammo');
         const reloadMsg = document.getElementById('reload-msg');
 
-        // ---------- LOAD STORMTROOPER ----------
+        // ---------- LOAD + AUTO-SCALE STORMTROOPER ----------
         BABYLON.SceneLoader.ImportMesh('', './', 'stormtrooper.glb', scene, function(meshes) {
             trooperTemplate = meshes[0];
-            trooperTemplate.setEnabled(false); // hide the template
+
+            // Measure the model's real height and scale to 1.8m
+            let min = new BABYLON.Vector3(Infinity, Infinity, Infinity);
+            let max = new BABYLON.Vector3(-Infinity, -Infinity, -Infinity);
+            trooperTemplate.getChildMeshes().forEach(m => {
+                const b = m.getBoundingInfo().boundingBox;
+                min = BABYLON.Vector3.Minimize(min, b.minimumWorld);
+                max = BABYLON.Vector3.Maximize(max, b.maximumWorld);
+            });
+            const modelHeight = max.y - min.y;
+            const scaleFactor = TROOPER_HEIGHT / modelHeight;
+            trooperTemplate.scaling.scaleInPlace(scaleFactor);
+
+            trooperTemplate.setEnabled(false);
             spawnWave();
         });
 
         function spawnTrooper() {
             const clone = trooperTemplate.instantiateHierarchy();
             clone.setEnabled(true);
+            clone.scaling = trooperTemplate.scaling.clone();
             const angle = Math.random() * Math.PI * 2;
-            const dist = 15 + Math.random() * 10;
+            const dist = 20 + Math.random() * 15;
             clone.position = new BABYLON.Vector3(
                 camera.position.x + Math.sin(angle) * dist,
                 0,
@@ -173,7 +230,7 @@
             for (let i = 0; i < count; i++) spawnTrooper();
         }
 
-        // ---------- SHOOTING ----------
+        // ---------- SHOOTING: fire a bolt ----------
         let recoilT = 0;
         canvas.addEventListener('click', () => {
             if (gameOver || reloading || !trooperTemplate) return;
@@ -183,20 +240,19 @@
             ammoEl.textContent = ammo;
             blasterSound();
 
-            // Muzzle flash + recoil
             muzzleMat.alpha = 1;
             muzzleLight.intensity = 3;
             recoilT = 1;
             setTimeout(() => { muzzleMat.alpha = 0; muzzleLight.intensity = 0; }, 60);
 
-            // Raycast from screen center
-            const ray = camera.getForwardRay(200);
-            const hit = scene.pickWithRay(ray, m => m.isPickable && m.metadata && m.metadata.trooper);
-
-            if (hit && hit.hit && hit.pickedMesh.metadata) {
-                const trooper = hit.pickedMesh.metadata.trooper;
-                if (trooper.alive) killTrooper(trooper, hit.pickedPoint);
-            }
+            // Spawn bolt at muzzle, flying toward crosshair
+            const bolt = boltTemplate.clone('bolt');
+            bolt.setEnabled(true);
+            const muzzleWorld = muzzle.getAbsolutePosition();
+            bolt.position = muzzleWorld.clone();
+            const direction = camera.getForwardRay(1).direction.normalize();
+            bolt.lookAt(bolt.position.add(direction));
+            bolts.push({ mesh: bolt, direction, distanceLeft: 150 });
 
             if (ammo <= 0) reload();
         });
@@ -227,25 +283,21 @@
 
             score++;
             scoreEl.textContent = score;
-
-            // Wave up every 5 kills
             if (score % 5 === 0) {
                 wave++;
                 waveEl.textContent = wave;
             }
 
-            // Ragdoll-ish: tip over, sink, then dispose
             const root = trooper.root;
             const tipAnim = new BABYLON.Animation('tip', 'rotation.x', 60,
                 BABYLON.Animation.ANIMATIONTYPE_FLOAT, BABYLON.Animation.ANIMATIONLOOPMODE_CONSTANT);
-            tipAnim.setKeys([{ frame: 0, value: 0 }, { frame: 30, value: Math.PI / 2 }]);
+            tipAnim.setKeys([{ frame: 0, value: root.rotation.x }, { frame: 30, value: root.rotation.x + Math.PI / 2 }]);
             root.animations = [tipAnim];
             scene.beginAnimation(root, 0, 30, false);
 
             setTimeout(() => {
                 root.dispose();
                 troopers = troopers.filter(t => t !== trooper);
-                // Keep the pressure on: respawn
                 spawnTrooper();
                 if (score % 5 === 0) spawnTrooper();
             }, 1000);
@@ -278,7 +330,30 @@
         scene.onBeforeRenderObservable.add(() => {
             const dt = engine.getDeltaTime() / 1000;
 
-            // Recoil animation
+            // Move bolts + check collisions
+            for (let i = bolts.length - 1; i >= 0; i--) {
+                const b = bolts[i];
+                const step = BOLT_SPEED * dt;
+                const ray = new BABYLON.Ray(b.mesh.position, b.direction, step + 0.6);
+                const hit = scene.pickWithRay(ray, m => m.isPickable && m.metadata && m.metadata.trooper);
+
+                if (hit && hit.hit && hit.pickedMesh.metadata) {
+                    const trooper = hit.pickedMesh.metadata.trooper;
+                    if (trooper.alive) killTrooper(trooper, hit.pickedPoint);
+                    b.mesh.dispose();
+                    bolts.splice(i, 1);
+                    continue;
+                }
+
+                b.mesh.position.addInPlace(b.direction.scale(step));
+                b.distanceLeft -= step;
+                if (b.distanceLeft <= 0) {
+                    b.mesh.dispose();
+                    bolts.splice(i, 1);
+                }
+            }
+
+            // Recoil
             if (recoilT > 0) {
                 recoilT = Math.max(0, recoilT - dt * 8);
                 gun.position.z = 1.2 - recoilT * 0.15;
@@ -292,12 +367,10 @@
                 camera.rotation.z = 0;
             }
 
-            // Lock camera height (no flying)
             camera.position.y = 1.7;
 
             if (gameOver) return;
 
-            // Troopers walk toward player
             const speed = (0.8 + wave * 0.15) * dt;
             troopers.forEach(t => {
                 if (!t.alive) return;
@@ -311,7 +384,6 @@
                 }
                 const move = toPlayer.normalize().scale(speed);
                 t.root.position.addInPlace(move);
-                // Face the player
                 t.root.lookAt(new BABYLON.Vector3(camera.position.x, 0, camera.position.z));
             });
         });
