@@ -1,527 +1,509 @@
-<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01//EN" "http://www.w3.org/TR/html4/strict.dtd">
+<!DOCTYPE html>
 <html>
 <head>
-  <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
-  <meta http-equiv="Content-Style-Type" content="text/css">
-  <title></title>
-  <meta name="Generator" content="Cocoa HTML Writer">
-  <meta name="CocoaVersion" content="2575.7">
-  <style type="text/css">
-    body {background-color: #000000}
-    p.p1 {margin: 0.0px 0.0px 0.0px 0.0px; font: 12.0px Times; color: #ffffff; -webkit-text-stroke: #000000}
-    p.p2 {margin: 0.0px 0.0px 0.0px 0.0px; font: 12.0px Times; color: #ffffff; -webkit-text-stroke: #000000; min-height: 14.0px}
-    span.s1 {font-kerning: none}
-  </style>
+    <title>Star Wars Shooter</title>
+    <script src="https://unpkg.com/babylonjs@5.0.0/babylon.js"></script>
+    <script src="https://unpkg.com/babylonjs-loaders@5.0.0/babylonjs.loaders.min.js"></script>
+    <style>
+        body { margin: 0; background: #000; overflow: hidden; }
+        canvas { display: block; width: 100vw; height: 100vh; }
+        #ui { position: absolute; top: 20px; left: 20px; color: #0f0; font-family: monospace; font-size: 16px; text-shadow: 0 0 8px #0f0; pointer-events: none; }
+        #crosshair { position: absolute; top: 50%; left: 50%; width: 20px; height: 20px; border: 2px solid #0f0; transform: translate(-50%, -50%); pointer-events: none; }
+        #crosshair::after { content: ''; position: absolute; top: 50%; left: 50%; width: 3px; height: 3px; background: #0f0; transform: translate(-50%, -50%); }
+        #heat-container { position: absolute; bottom: 40px; left: 50%; transform: translateX(-50%); width: 220px; height: 10px; border: 1px solid #0f0; background: rgba(0,0,0,0.5); pointer-events: none; }
+        #heat-bar { height: 100%; width: 0%; background: linear-gradient(90deg, #0f0, #ff0, #f00); transition: width 0.05s linear; }
+        #overheat-msg { position: absolute; bottom: 60px; left: 50%; transform: translateX(-50%); color: #f00; font-family: monospace; font-size: 18px; text-shadow: 0 0 10px #f00; display: none; }
+        #lock-hint { position: absolute; top: 40%; left: 50%; transform: translate(-50%, -50%); color: #0f0; font-family: monospace; font-size: 22px; text-shadow: 0 0 10px #0f0; }
+        #gameover { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); display: none; flex-direction: column; align-items: center; justify-content: center; color: #f00; font-family: monospace; }
+        #gameover h1 { font-size: 48px; text-shadow: 0 0 20px #f00; }
+        #gameover p { color: #0f0; font-size: 20px; }
+        #restart { background: #0f0; color: #000; border: none; padding: 12px 30px; font-family: monospace; font-size: 18px; cursor: pointer; margin-top: 20px; }
+        #start-hint { position: absolute; bottom: 30px; left: 50%; transform: translateX(-50%); color: #0f0; font-family: monospace; opacity: 0.7; text-align: center; }
+    </style>
 </head>
 <body>
-<p class="p1"><span class="s1">&lt;!DOCTYPE html&gt;</span></p>
-<p class="p1"><span class="s1">&lt;html&gt;</span></p>
-<p class="p1"><span class="s1">&lt;head&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>&lt;title&gt;Star Wars Shooter&lt;/title&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>&lt;script src="https://unpkg.com/babylonjs@5.0.0/babylon.js"&gt;&lt;/script&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>&lt;script src="https://unpkg.com/babylonjs-loaders@5.0.0/babylonjs.loaders.min.js"&gt;&lt;/script&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>&lt;style&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>body { margin: 0; background: #000; overflow: hidden; }</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>canvas { display: block; width: 100vw; height: 100vh; }</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>#ui { position: absolute; top: 20px; left: 20px; color: #0f0; font-family: monospace; font-size: 16px; text-shadow: 0 0 8px #0f0; pointer-events: none; }</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>#crosshair { position: absolute; top: 50%; left: 50%; width: 20px; height: 20px; border: 2px solid #0f0; transform: translate(-50%, -50%); pointer-events: none; }</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>#crosshair::after { content: ''; position: absolute; top: 50%; left: 50%; width: 3px; height: 3px; background: #0f0; transform: translate(-50%, -50%); }</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>#heat-container { position: absolute; bottom: 40px; left: 50%; transform: translateX(-50%); width: 220px; height: 10px; border: 1px solid #0f0; background: rgba(0,0,0,0.5); pointer-events: none; }</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>#heat-bar { height: 100%; width: 0%; background: linear-gradient(90deg, #0f0, #ff0, #f00); transition: width 0.05s linear; }</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>#overheat-msg { position: absolute; bottom: 60px; left: 50%; transform: translateX(-50%); color: #f00; font-family: monospace; font-size: 18px; text-shadow: 0 0 10px #f00; display: none; }</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>#lock-hint { position: absolute; top: 40%; left: 50%; transform: translate(-50%, -50%); color: #0f0; font-family: monospace; font-size: 22px; text-shadow: 0 0 10px #0f0; }</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>#gameover { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); display: none; flex-direction: column; align-items: center; justify-content: center; color: #f00; font-family: monospace; }</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>#gameover h1 { font-size: 48px; text-shadow: 0 0 20px #f00; }</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>#gameover p { color: #0f0; font-size: 20px; }</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>#restart { background: #0f0; color: #000; border: none; padding: 12px 30px; font-family: monospace; font-size: 18px; cursor: pointer; margin-top: 20px; }</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>#start-hint { position: absolute; bottom: 30px; left: 50%; transform: translateX(-50%); color: #0f0; font-family: monospace; opacity: 0.7; text-align: center; }</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>&lt;/style&gt;</span></p>
-<p class="p1"><span class="s1">&lt;/head&gt;</span></p>
-<p class="p1"><span class="s1">&lt;body&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>&lt;canvas id="canvas"&gt;&lt;/canvas&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>&lt;div id="ui"&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>&lt;div&gt;SCORE: &lt;span id="score"&gt;0&lt;/span&gt;&lt;/div&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>&lt;div&gt;WAVE: &lt;span id="wave"&gt;1&lt;/span&gt;&lt;/div&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>&lt;/div&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>&lt;div id="crosshair"&gt;&lt;/div&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>&lt;div id="heat-container"&gt;&lt;div id="heat-bar"&gt;&lt;/div&gt;&lt;/div&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>&lt;div id="overheat-msg"&gt;OVERHEATED&lt;/div&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>&lt;div id="lock-hint"&gt;CLICK TO PLAY&lt;/div&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>&lt;div id="start-hint"&gt;WASD move &amp;bull; SHIFT sprint &amp;bull; SPACE jump &amp;bull; C crouch &amp;bull; RIGHT-CLICK aim &amp;bull; ESC free mouse&lt;/div&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>&lt;div id="gameover"&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>&lt;h1&gt;GAME OVER&lt;/h1&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>&lt;p&gt;Score: &lt;span id="final-score"&gt;0&lt;/span&gt;&lt;/p&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>&lt;button id="restart" onclick="location.reload()"&gt;RESTART&lt;/button&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>&lt;/div&gt;</span></p>
-<p class="p2"><span class="s1"></span><br></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>&lt;script&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>const canvas = document.getElementById('canvas');</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>const engine = new BABYLON.Engine(canvas, true);</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>const scene = new BABYLON.Scene(engine);</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>scene.clearColor = new BABYLON.Color3(0.01, 0.01, 0.03);</span></p>
-<p class="p2"><span class="s1"></span><br></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>// ---------- CAMERA ----------</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>const BASE_FOV = 0.8, ADS_FOV = 0.45;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>const STAND_H = 1.7, CROUCH_H = 0.9;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>const camera = new BABYLON.UniversalCamera('camera', new BABYLON.Vector3(0, STAND_H, -8), scene);</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>camera.attachControl(canvas, true);</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>camera.speed = 0.35;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>camera.minZ = 0.05;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>camera.fov = BASE_FOV;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>camera.inertia = 0.5;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>camera.angularSensibility = 1200;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>camera.keysUp = [87]; camera.keysDown = [83];</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>camera.keysLeft = [65]; camera.keysRight = [68];</span></p>
-<p class="p2"><span class="s1"></span><br></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>// ---------- POINTER LOCK ----------</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>const lockHint = document.getElementById('lock-hint');</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>canvas.addEventListener('click', () =&gt; {</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>if (!document.pointerLockElement) {</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                </span>canvas.requestPointerLock();</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>}</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>});</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>document.addEventListener('pointerlockchange', () =&gt; {</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>lockHint.style.display = document.pointerLockElement ? 'none' : 'block';</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>});</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>canvas.addEventListener('contextmenu', e =&gt; e.preventDefault());</span></p>
-<p class="p2"><span class="s1"></span><br></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>// ---------- LIGHTS ----------</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>const hemi = new BABYLON.HemisphericLight('hemi', new BABYLON.Vector3(0, 1, 0), scene);</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>hemi.intensity = 0.8;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>const dir = new BABYLON.DirectionalLight('dir', new BABYLON.Vector3(0, -1, 1), scene);</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>dir.intensity = 0.4;</span></p>
-<p class="p2"><span class="s1"></span><br></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>// ---------- GROUND GRID (slightly reflective) ----------</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>const ground = BABYLON.MeshBuilder.CreateGround('ground', { width: 200, height: 200 }, scene);</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>const gridTex = new BABYLON.DynamicTexture('gridTex', 512, scene);</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>const gctx = gridTex.getContext();</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>gctx.fillStyle = '#0a0a12'; gctx.fillRect(0, 0, 512, 512);</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>gctx.strokeStyle = '#1a3a5c'; gctx.lineWidth = 2;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>for (let i = 0; i &lt;= 512; i += 64) {</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>gctx.beginPath(); gctx.moveTo(i, 0); gctx.lineTo(i, 512); gctx.stroke();</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>gctx.beginPath(); gctx.moveTo(0, i); gctx.lineTo(512, i); gctx.stroke();</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>}</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>gridTex.update();</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>const groundMat = new BABYLON.StandardMaterial('gmat', scene);</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>groundMat.diffuseTexture = gridTex;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>groundMat.diffuseTexture.uScale = 25;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>groundMat.diffuseTexture.vScale = 25;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>groundMat.specularColor = new BABYLON.Color3(0.5, 0.3, 0.3);</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>groundMat.specularPower = 32;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>ground.material = groundMat;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>ground.isPickable = false;</span></p>
-<p class="p2"><span class="s1"></span><br></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>// ---------- CRATES (glossy so bolt light reflects) ----------</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>const crateMat = new BABYLON.StandardMaterial('crateMat', scene);</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>crateMat.diffuseColor = new BABYLON.Color3(0.25, 0.25, 0.3);</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>crateMat.specularColor = new BABYLON.Color3(0.6, 0.4, 0.4);</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>crateMat.specularPower = 24;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>for (let i = 0; i &lt; 25; i++) {</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>const size = 1 + Math.random() * 2;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>const crate = BABYLON.MeshBuilder.CreateBox('crate' + i, { size }, scene);</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>crate.position = new BABYLON.Vector3((Math.random() - 0.5) * 120, size / 2, (Math.random() - 0.5) * 120);</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>crate.rotation.y = Math.random() * Math.PI;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>crate.material = crateMat;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>crate.isPickable = false;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>}</span></p>
-<p class="p2"><span class="s1"></span><br></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>// ---------- GUN ----------</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>const gun = new BABYLON.TransformNode('gun', scene);</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>gun.parent = camera;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>const GUN_HIP = new BABYLON.Vector3(0.35, -0.3, 1.2);</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>const GUN_ADS = new BABYLON.Vector3(0, -0.18, 0.9);</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>gun.position = GUN_HIP.clone();</span></p>
-<p class="p2"><span class="s1"></span><br></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>const gunMat = new BABYLON.StandardMaterial('gunMat', scene);</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>gunMat.diffuseColor = new BABYLON.Color3(0.15, 0.15, 0.18);</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>gunMat.specularColor = new BABYLON.Color3(0.3, 0.3, 0.3);</span></p>
-<p class="p2"><span class="s1"></span><br></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>const barrel = BABYLON.MeshBuilder.CreateCylinder('barrel', { height: 0.7, diameter: 0.07 }, scene);</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>barrel.rotation.x = Math.PI / 2; barrel.position.z = 0.35;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>barrel.material = gunMat; barrel.parent = gun; barrel.isPickable = false;</span></p>
-<p class="p2"><span class="s1"></span><br></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>const body = BABYLON.MeshBuilder.CreateBox('gunbody', { width: 0.12, height: 0.18, depth: 0.45 }, scene);</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>body.material = gunMat; body.parent = gun; body.isPickable = false;</span></p>
-<p class="p2"><span class="s1"></span><br></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>const grip = BABYLON.MeshBuilder.CreateBox('grip', { width: 0.09, height: 0.25, depth: 0.1 }, scene);</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>grip.position.y = -0.18; grip.position.z = -0.12; grip.rotation.x = 0.3;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>grip.material = gunMat; grip.parent = gun; grip.isPickable = false;</span></p>
-<p class="p2"><span class="s1"></span><br></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>const muzzle = BABYLON.MeshBuilder.CreateSphere('muzzle', { diameter: 0.12 }, scene);</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>muzzle.position.z = 0.72; muzzle.parent = gun; muzzle.isPickable = false;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>const muzzleMat = new BABYLON.StandardMaterial('muzzleMat', scene);</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>muzzleMat.emissiveColor = new BABYLON.Color3(1, 0.9, 0.4);</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>muzzleMat.alpha = 0;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>muzzle.material = muzzleMat;</span></p>
-<p class="p2"><span class="s1"></span><br></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>const muzzleLight = new BABYLON.PointLight('muzzleLight', BABYLON.Vector3.Zero(), scene);</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>muzzleLight.parent = muzzle;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>muzzleLight.diffuse = new BABYLON.Color3(1, 0.8, 0.3);</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>muzzleLight.intensity = 0;</span></p>
-<p class="p2"><span class="s1"></span><br></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>// ---------- BOLTS ----------</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>const glow = new BABYLON.GlowLayer('glow', scene);</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>glow.intensity = 1.8;</span></p>
-<p class="p2"><span class="s1"></span><br></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>const boltMat = new BABYLON.StandardMaterial('boltMat', scene);</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>boltMat.emissiveColor = new BABYLON.Color3(1, 0.15, 0.1);</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>boltMat.disableLighting = true;</span></p>
-<p class="p2"><span class="s1"></span><br></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>const boltTemplate = BABYLON.MeshBuilder.CreateCylinder('boltTemplate', { height: 1.4, diameter: 0.06 }, scene);</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>boltTemplate.rotation.x = Math.PI / 2;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>boltTemplate.bakeCurrentTransformIntoVertices();</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>boltTemplate.material = boltMat;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>boltTemplate.isPickable = false;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>boltTemplate.setEnabled(false);</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>let bolts = [];</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>const BOLT_SPEED = 120;</span></p>
-<p class="p2"><span class="s1"></span><br></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>// ---------- SOUND ----------</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>let audioCtx = null;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>function blasterSound() {</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>const o = audioCtx.createOscillator(), g = audioCtx.createGain();</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>o.type = 'sawtooth';</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>o.frequency.setValueAtTime(900, audioCtx.currentTime);</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>o.frequency.exponentialRampToValueAtTime(120, audioCtx.currentTime + 0.18);</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>g.gain.setValueAtTime(0.25, audioCtx.currentTime);</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>g.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.2);</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>o.connect(g); g.connect(audioCtx.destination);</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>o.start(); o.stop(audioCtx.currentTime + 0.2);</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>}</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>function hitSound() {</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>if (!audioCtx) return;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>const o = audioCtx.createOscillator(), g = audioCtx.createGain();</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>o.type = 'square';</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>o.frequency.setValueAtTime(200, audioCtx.currentTime);</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>o.frequency.exponentialRampToValueAtTime(50, audioCtx.currentTime + 0.25);</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>g.gain.setValueAtTime(0.3, audioCtx.currentTime);</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>g.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.3);</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>o.connect(g); g.connect(audioCtx.destination);</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>o.start(); o.stop(audioCtx.currentTime + 0.3);</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>}</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>function overheatSound() {</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>if (!audioCtx) return;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>const o = audioCtx.createOscillator(), g = audioCtx.createGain();</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>o.type = 'triangle';</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>o.frequency.setValueAtTime(400, audioCtx.currentTime);</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>o.frequency.exponentialRampToValueAtTime(80, audioCtx.currentTime + 0.5);</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>g.gain.setValueAtTime(0.3, audioCtx.currentTime);</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>g.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.5);</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>o.connect(g); g.connect(audioCtx.destination);</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>o.start(); o.stop(audioCtx.currentTime + 0.5);</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>}</span></p>
-<p class="p2"><span class="s1"></span><br></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>// ---------- STATE ----------</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>let score = 0, wave = 1, gameOver = false;</span></p>
-<p class="p2"><span class="s1"></span><br></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>// Overheat system (Battlefront style)</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>let heat = 0; <span class="Apple-converted-space">                </span>// 0..100</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>const HEAT_PER_SHOT = 9;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>const COOL_RATE = 28; <span class="Apple-converted-space">        </span>// per second while not overheated</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>const OVERHEAT_COOL_RATE = 20; // slower recovery as penalty</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>let overheated = false;</span></p>
-<p class="p2"><span class="s1"></span><br></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>let troopers = [];</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>let container = null;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>let hasRunAnim = false;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>const TROOPER_HEIGHT = 1.8;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>let trooperScale = 1;</span></p>
-<p class="p2"><span class="s1"></span><br></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>const scoreEl = document.getElementById('score');</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>const waveEl = document.getElementById('wave');</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>const heatBar = document.getElementById('heat-bar');</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>const overheatMsg = document.getElementById('overheat-msg');</span></p>
-<p class="p2"><span class="s1"></span><br></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>// ---------- LOAD MODEL ----------</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>BABYLON.SceneLoader.LoadAssetContainer('./', 'stormtrooper.glb', scene, function(loaded) {</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>container = loaded;</span></p>
-<p class="p2"><span class="s1"></span><br></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>let min = new BABYLON.Vector3(Infinity, Infinity, Infinity);</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>let max = new BABYLON.Vector3(-Infinity, -Infinity, -Infinity);</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>container.meshes.forEach(m =&gt; {</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                </span>if (!m.getBoundingInfo) return;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                </span>const b = m.getBoundingInfo().boundingBox;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                </span>min = BABYLON.Vector3.Minimize(min, b.minimumWorld);</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                </span>max = BABYLON.Vector3.Maximize(max, b.maximumWorld);</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>});</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>trooperScale = TROOPER_HEIGHT / (max.y - min.y);</span></p>
-<p class="p2"><span class="s1"></span><br></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>hasRunAnim = container.animationGroups.length &gt; 0;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>spawnWave();</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>});</span></p>
-<p class="p2"><span class="s1"></span><br></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>function spawnTrooper() {</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>const inst = container.instantiateModelsToScene(name =&gt; name, false);</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>const root = inst.rootNodes[0];</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>root.scaling.scaleInPlace(trooperScale);</span></p>
-<p class="p2"><span class="s1"></span><br></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>const angle = Math.random() * Math.PI * 2;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>const dist = 20 + Math.random() * 15;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>root.position = new BABYLON.Vector3(</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                </span>camera.position.x + Math.sin(angle) * dist, 0,</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                </span>camera.position.z + Math.cos(angle) * dist</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>);</span></p>
-<p class="p2"><span class="s1"></span><br></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>let anim = null;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>if (inst.animationGroups.length &gt; 0) {</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                </span>anim = inst.animationGroups.find(a =&gt; /run|walk|move|sprint/i.test(a.name)) || inst.animationGroups[0];</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                </span>anim.start(true);</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>}</span></p>
-<p class="p2"><span class="s1"></span><br></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>const childMeshes = root.getChildMeshes();</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>childMeshes.forEach(m =&gt; { m.isPickable = true; });</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>const trooper = { root, meshes: childMeshes, alive: true, anim, bobPhase: Math.random() * Math.PI * 2 };</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>childMeshes.forEach(m =&gt; m.metadata = { trooper });</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>troopers.push(trooper);</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>}</span></p>
-<p class="p2"><span class="s1"></span><br></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>function spawnWave() {</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>const count = Math.min(3 + wave - 1, 8);</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>for (let i = 0; i &lt; count; i++) spawnTrooper();</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>}</span></p>
-<p class="p2"><span class="s1"></span><br></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>// ---------- INPUT ----------</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>let isADS = false;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>let velY = 0, grounded = true, crouching = false;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>let sprinting = false;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>let recoilT = 0;</span></p>
-<p class="p2"><span class="s1"></span><br></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>canvas.addEventListener('mousedown', e =&gt; {</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>if (!document.pointerLockElement) return;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>if (e.button === 2) { isADS = true; return; }</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>if (e.button !== 0) return;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>if (gameOver || !container) return;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>if (overheated) return;</span></p>
-<p class="p2"><span class="s1"></span><br></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>// Fire</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>heat += HEAT_PER_SHOT;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>if (heat &gt;= 100) {</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                </span>heat = 100;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                </span>overheated = true;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                </span>overheatMsg.style.display = 'block';</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                </span>overheatSound();</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>}</span></p>
-<p class="p2"><span class="s1"></span><br></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>blasterSound();</span></p>
-<p class="p2"><span class="s1"></span><br></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>muzzleMat.alpha = 1;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>muzzleLight.intensity = 3;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>recoilT = 1;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>setTimeout(() =&gt; { muzzleMat.alpha = 0; muzzleLight.intensity = 0; }, 60);</span></p>
-<p class="p2"><span class="s1"></span><br></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>const bolt = boltTemplate.clone('bolt');</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>bolt.setEnabled(true);</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>bolt.position = muzzle.getAbsolutePosition().clone();</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>const direction = camera.getForwardRay(1).direction.normalize();</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>bolt.lookAt(bolt.position.add(direction));</span></p>
-<p class="p2"><span class="s1"></span><br></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>const boltLight = new BABYLON.PointLight('boltLight', BABYLON.Vector3.Zero(), scene);</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>boltLight.parent = bolt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>boltLight.diffuse = new BABYLON.Color3(1, 0.25, 0.12);</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>boltLight.specular = new BABYLON.Color3(1, 0.3, 0.2);</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>boltLight.intensity = 6;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>boltLight.range = 15;</span></p>
-<p class="p2"><span class="s1"></span><br></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>bolts.push({ mesh: bolt, light: boltLight, direction, distanceLeft: 150 });</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>});</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>canvas.addEventListener('mouseup', e =&gt; {</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>if (e.button === 2) isADS = false;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>});</span></p>
-<p class="p2"><span class="s1"></span><br></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>document.addEventListener('keydown', e =&gt; {</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>if (e.code === 'ShiftLeft') sprinting = true;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>if (e.code === 'Space' &amp;&amp; grounded) {</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                </span>velY = 5.5;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                </span>grounded = false;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>}</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>if (e.code === 'KeyC') crouching = true;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>});</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>document.addEventListener('keyup', e =&gt; {</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>if (e.code === 'KeyC') crouching = false;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>if (e.code === 'ShiftLeft') sprinting = false;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>});</span></p>
-<p class="p2"><span class="s1"></span><br></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>// ---------- KILL ----------</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>function killTrooper(trooper, hitPoint) {</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>trooper.alive = false;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>if (trooper.anim) trooper.anim.stop();</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>hitSound();</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>screenShake();</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>sparkExplosion(hitPoint || trooper.root.position);</span></p>
-<p class="p2"><span class="s1"></span><br></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>score++;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>scoreEl.textContent = score;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>if (score % 5 === 0) { wave++; waveEl.textContent = wave; }</span></p>
-<p class="p2"><span class="s1"></span><br></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>const root = trooper.root;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>const tipAnim = new BABYLON.Animation('tip', 'rotation.x', 60,</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                </span>BABYLON.Animation.ANIMATIONTYPE_FLOAT, BABYLON.Animation.ANIMATIONLOOPMODE_CONSTANT);</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>tipAnim.setKeys([{ frame: 0, value: root.rotation.x }, { frame: 30, value: root.rotation.x + Math.PI / 2 }]);</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>root.animations = [tipAnim];</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>scene.beginAnimation(root, 0, 30, false);</span></p>
-<p class="p2"><span class="s1"></span><br></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>setTimeout(() =&gt; {</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                </span>root.dispose();</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                </span>troopers = troopers.filter(t =&gt; t !== trooper);</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                </span>spawnTrooper();</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                </span>if (score % 5 === 0) spawnTrooper();</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>}, 1000);</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>}</span></p>
-<p class="p2"><span class="s1"></span><br></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>function impactFlash(position) {</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>const flash = new BABYLON.PointLight('flash', position.clone(), scene);</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>flash.diffuse = new BABYLON.Color3(1, 0.4, 0.15);</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>flash.specular = new BABYLON.Color3(1, 0.5, 0.3);</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>flash.intensity = 12;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>flash.range = 16;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>let life = 1;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>const obs = scene.onBeforeRenderObservable.add(() =&gt; {</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                </span>life -= engine.getDeltaTime() / 150;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                </span>flash.intensity = 12 * Math.max(0, life);</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                </span>if (life &lt;= 0) {</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                    </span>scene.onBeforeRenderObservable.remove(obs);</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                    </span>flash.dispose();</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                </span>}</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>});</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>}</span></p>
-<p class="p2"><span class="s1"></span><br></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>function sparkExplosion(position) {</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>const ps = new BABYLON.ParticleSystem('sparks', 150, scene);</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>ps.particleTexture = new BABYLON.Texture('https://assets.babylonjs.com/textures/flare.png', scene);</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>ps.emitter = position.clone();</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>ps.minEmitBox = new BABYLON.Vector3(-0.2, 0, -0.2);</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>ps.maxEmitBox = new BABYLON.Vector3(0.2, 1.5, 0.2);</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>ps.color1 = new BABYLON.Color4(1, 0.9, 0.3, 1);</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>ps.color2 = new BABYLON.Color4(1, 0.4, 0.1, 1);</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>ps.colorDead = new BABYLON.Color4(0.2, 0, 0, 0);</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>ps.minSize = 0.08; ps.maxSize = 0.4;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>ps.minLifeTime = 0.2; ps.maxLifeTime = 0.6;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>ps.emitRate = 1200;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>ps.direction1 = new BABYLON.Vector3(-2, 2, -2);</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>ps.direction2 = new BABYLON.Vector3(2, 4, 2);</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>ps.gravity = new BABYLON.Vector3(0, -9.8, 0);</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>ps.start();</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>setTimeout(() =&gt; { ps.stop(); setTimeout(() =&gt; ps.dispose(), 800); }, 200);</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>}</span></p>
-<p class="p2"><span class="s1"></span><br></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>let shakeT = 0;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>function screenShake() { shakeT = 1; }</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>let bobT = 0;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>const lastPos = camera.position.clone();</span></p>
-<p class="p2"><span class="s1"></span><br></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>// ---------- GAME LOOP ----------</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>scene.onBeforeRenderObservable.add(() =&gt; {</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>const dt = engine.getDeltaTime() / 1000;</span></p>
-<p class="p2"><span class="s1"></span><br></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>// Heat cooldown</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>if (heat &gt; 0) {</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                </span>heat -= (overheated ? OVERHEAT_COOL_RATE : COOL_RATE) * dt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                </span>if (heat &lt;= 0) {</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                    </span>heat = 0;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                    </span>if (overheated) {</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                        </span>overheated = false;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                        </span>overheatMsg.style.display = 'none';</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                    </span>}</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                </span>}</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>}</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>heatBar.style.width = heat + '%';</span></p>
-<p class="p2"><span class="s1"></span><br></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>// Bolts</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>for (let i = bolts.length - 1; i &gt;= 0; i--) {</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                </span>const b = bolts[i];</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                </span>const step = BOLT_SPEED * dt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                </span>const ray = new BABYLON.Ray(b.mesh.position, b.direction, step + 0.6);</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                </span>const hit = scene.pickWithRay(ray, m =&gt; m.isPickable &amp;&amp; m.metadata &amp;&amp; m.metadata.trooper);</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                </span>if (hit &amp;&amp; hit.hit &amp;&amp; hit.pickedMesh.metadata) {</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                    </span>const trooper = hit.pickedMesh.metadata.trooper;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                    </span>if (trooper.alive) killTrooper(trooper, hit.pickedPoint);</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                    </span>impactFlash(b.mesh.position);</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                    </span>b.light.dispose(); b.mesh.dispose(); bolts.splice(i, 1); continue;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                </span>}</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                </span>b.mesh.position.addInPlace(b.direction.scale(step));</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                </span>b.distanceLeft -= step;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                </span>if (b.distanceLeft &lt;= 0) { b.light.dispose(); b.mesh.dispose(); bolts.splice(i, 1); }</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>}</span></p>
-<p class="p2"><span class="s1"></span><br></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>// ADS</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>const targetFov = isADS ? ADS_FOV : BASE_FOV;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>camera.fov += (targetFov - camera.fov) * Math.min(1, dt * 12);</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>const targetGun = isADS ? GUN_ADS : GUN_HIP;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>gun.position = BABYLON.Vector3.Lerp(gun.position, targetGun, Math.min(1, dt * 12));</span></p>
-<p class="p2"><span class="s1"></span><br></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>// Movement bob</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>const horizMoved = Math.hypot(camera.position.x - lastPos.x, camera.position.z - lastPos.z);</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>if (horizMoved &gt; 0.001 &amp;&amp; grounded) {</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                </span>bobT += dt * (sprinting ? 13 : 8);</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                </span>gun.position.y += Math.sin(bobT) * (sprinting ? 0.03 : 0.015);</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                </span>gun.position.x += Math.cos(bobT * 0.5) * 0.01;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                </span>camera.position.y += Math.sin(bobT) * 0.015;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>}</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>lastPos.set(camera.position.x, camera.position.y, camera.position.z);</span></p>
-<p class="p2"><span class="s1"></span><br></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>// Recoil</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>if (recoilT &gt; 0) {</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                </span>recoilT = Math.max(0, recoilT - dt * 8);</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                </span>gun.position.z -= recoilT * 0.15;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>}</span></p>
-<p class="p2"><span class="s1"></span><br></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>// Jump + crouch</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>const targetH = crouching ? CROUCH_H : STAND_H;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>if (!grounded) {</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                </span>velY -= 14 * dt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                </span>camera.position.y += velY * dt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                </span>if (camera.position.y &lt;= targetH) {</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                    </span>camera.position.y = targetH;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                    </span>velY = 0;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                    </span>grounded = true;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                </span>}</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>} else {</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                </span>camera.position.y += (targetH - camera.position.y) * Math.min(1, dt * 10);</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>}</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>camera.speed = crouching ? 0.15 : (isADS ? 0.18 : (sprinting ? 0.6 : 0.35));</span></p>
-<p class="p2"><span class="s1"></span><br></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>// Shake</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>if (shakeT &gt; 0) {</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                </span>shakeT = Math.max(0, shakeT - dt * 5);</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                </span>camera.rotation.z = (Math.random() - 0.5) * 0.02 * shakeT;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>} else {</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                </span>camera.rotation.z = 0;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>}</span></p>
-<p class="p2"><span class="s1"></span><br></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>if (gameOver) return;</span></p>
-<p class="p2"><span class="s1"></span><br></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>// Troopers advance</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>const speed = (0.8 + wave * 0.15) * dt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>troopers.forEach(t =&gt; {</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                </span>if (!t.alive) return;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                </span>const toPlayer = camera.position.subtract(t.root.position);</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                </span>toPlayer.y = 0;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                </span>const distance = toPlayer.length();</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                </span>if (distance &lt; 1.5) { endGame(); return; }</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                </span>t.root.position.addInPlace(toPlayer.normalize().scale(speed));</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                </span>t.root.lookAt(new BABYLON.Vector3(camera.position.x, 0, camera.position.z));</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                </span>t.root.rotate(BABYLON.Axis.Y, -Math.PI / 2, BABYLON.Space.LOCAL);</span></p>
-<p class="p2"><span class="s1"></span><br></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                </span>if (!hasRunAnim) {</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                    </span>t.bobPhase += dt * 10;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                    </span>t.root.position.y = Math.abs(Math.sin(t.bobPhase)) * 0.12;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                    </span>t.root.rotation.x = 0.15;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                </span>}</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>});</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>});</span></p>
-<p class="p2"><span class="s1"></span><br></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>function endGame() {</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>gameOver = true;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>document.exitPointerLock();</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>document.getElementById('final-score').textContent = score;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>document.getElementById('gameover').style.display = 'flex';</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>}</span></p>
-<p class="p2"><span class="s1"></span><br></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>engine.runRenderLoop(() =&gt; scene.render());</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>window.addEventListener('resize', () =&gt; engine.resize());</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>&lt;/script&gt;</span></p>
-<p class="p1"><span class="s1">&lt;/body&gt;</span></p>
-<p class="p1"><span class="s1">&lt;/html&gt;</span></p>
+    <canvas id="canvas"></canvas>
+    <div id="ui">
+        <div>SCORE: <span id="score">0</span></div>
+        <div>WAVE: <span id="wave">1</span></div>
+    </div>
+    <div id="crosshair"></div>
+    <div id="heat-container"><div id="heat-bar"></div></div>
+    <div id="overheat-msg">OVERHEATED</div>
+    <div id="lock-hint">CLICK TO PLAY</div>
+    <div id="start-hint">WASD move &bull; SHIFT sprint &bull; SPACE jump &bull; C crouch &bull; RIGHT-CLICK aim &bull; ESC free mouse</div>
+    <div id="gameover">
+        <h1>GAME OVER</h1>
+        <p>Score: <span id="final-score">0</span></p>
+        <button id="restart" onclick="location.reload()">RESTART</button>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('canvas');
+        const engine = new BABYLON.Engine(canvas, true);
+        const scene = new BABYLON.Scene(engine);
+        scene.clearColor = new BABYLON.Color3(0.01, 0.01, 0.03);
+
+        // ---------- CAMERA ----------
+        const BASE_FOV = 0.8, ADS_FOV = 0.45;
+        const STAND_H = 1.7, CROUCH_H = 0.9;
+        const camera = new BABYLON.UniversalCamera('camera', new BABYLON.Vector3(0, STAND_H, -8), scene);
+        camera.attachControl(canvas, true);
+        camera.speed = 0.35;
+        camera.minZ = 0.05;
+        camera.fov = BASE_FOV;
+        camera.inertia = 0.5;
+        camera.angularSensibility = 1200;
+        camera.keysUp = [87]; camera.keysDown = [83];
+        camera.keysLeft = [65]; camera.keysRight = [68];
+
+        // ---------- POINTER LOCK ----------
+        const lockHint = document.getElementById('lock-hint');
+        canvas.addEventListener('click', () => {
+            if (!document.pointerLockElement) {
+                canvas.requestPointerLock();
+            }
+        });
+        document.addEventListener('pointerlockchange', () => {
+            lockHint.style.display = document.pointerLockElement ? 'none' : 'block';
+        });
+        canvas.addEventListener('contextmenu', e => e.preventDefault());
+
+        // ---------- LIGHTS ----------
+        const hemi = new BABYLON.HemisphericLight('hemi', new BABYLON.Vector3(0, 1, 0), scene);
+        hemi.intensity = 0.8;
+        const dir = new BABYLON.DirectionalLight('dir', new BABYLON.Vector3(0, -1, 1), scene);
+        dir.intensity = 0.4;
+
+        // ---------- GROUND GRID (slightly reflective) ----------
+        const ground = BABYLON.MeshBuilder.CreateGround('ground', { width: 200, height: 200 }, scene);
+        const gridTex = new BABYLON.DynamicTexture('gridTex', 512, scene);
+        const gctx = gridTex.getContext();
+        gctx.fillStyle = '#0a0a12'; gctx.fillRect(0, 0, 512, 512);
+        gctx.strokeStyle = '#1a3a5c'; gctx.lineWidth = 2;
+        for (let i = 0; i <= 512; i += 64) {
+            gctx.beginPath(); gctx.moveTo(i, 0); gctx.lineTo(i, 512); gctx.stroke();
+            gctx.beginPath(); gctx.moveTo(0, i); gctx.lineTo(512, i); gctx.stroke();
+        }
+        gridTex.update();
+        const groundMat = new BABYLON.StandardMaterial('gmat', scene);
+        groundMat.diffuseTexture = gridTex;
+        groundMat.diffuseTexture.uScale = 25;
+        groundMat.diffuseTexture.vScale = 25;
+        groundMat.specularColor = new BABYLON.Color3(0.5, 0.3, 0.3);
+        groundMat.specularPower = 32;
+        ground.material = groundMat;
+        ground.isPickable = false;
+
+        // ---------- CRATES (glossy so bolt light reflects) ----------
+        const crateMat = new BABYLON.StandardMaterial('crateMat', scene);
+        crateMat.diffuseColor = new BABYLON.Color3(0.25, 0.25, 0.3);
+        crateMat.specularColor = new BABYLON.Color3(0.6, 0.4, 0.4);
+        crateMat.specularPower = 24;
+        for (let i = 0; i < 25; i++) {
+            const size = 1 + Math.random() * 2;
+            const crate = BABYLON.MeshBuilder.CreateBox('crate' + i, { size }, scene);
+            crate.position = new BABYLON.Vector3((Math.random() - 0.5) * 120, size / 2, (Math.random() - 0.5) * 120);
+            crate.rotation.y = Math.random() * Math.PI;
+            crate.material = crateMat;
+            crate.isPickable = false;
+        }
+
+        // ---------- GUN ----------
+        const gun = new BABYLON.TransformNode('gun', scene);
+        gun.parent = camera;
+        const GUN_HIP = new BABYLON.Vector3(0.35, -0.3, 1.2);
+        const GUN_ADS = new BABYLON.Vector3(0, -0.18, 0.9);
+        gun.position = GUN_HIP.clone();
+
+        const gunMat = new BABYLON.StandardMaterial('gunMat', scene);
+        gunMat.diffuseColor = new BABYLON.Color3(0.15, 0.15, 0.18);
+        gunMat.specularColor = new BABYLON.Color3(0.3, 0.3, 0.3);
+
+        const barrel = BABYLON.MeshBuilder.CreateCylinder('barrel', { height: 0.7, diameter: 0.07 }, scene);
+        barrel.rotation.x = Math.PI / 2; barrel.position.z = 0.35;
+        barrel.material = gunMat; barrel.parent = gun; barrel.isPickable = false;
+
+        const body = BABYLON.MeshBuilder.CreateBox('gunbody', { width: 0.12, height: 0.18, depth: 0.45 }, scene);
+        body.material = gunMat; body.parent = gun; body.isPickable = false;
+
+        const grip = BABYLON.MeshBuilder.CreateBox('grip', { width: 0.09, height: 0.25, depth: 0.1 }, scene);
+        grip.position.y = -0.18; grip.position.z = -0.12; grip.rotation.x = 0.3;
+        grip.material = gunMat; grip.parent = gun; grip.isPickable = false;
+
+        const muzzle = BABYLON.MeshBuilder.CreateSphere('muzzle', { diameter: 0.12 }, scene);
+        muzzle.position.z = 0.72; muzzle.parent = gun; muzzle.isPickable = false;
+        const muzzleMat = new BABYLON.StandardMaterial('muzzleMat', scene);
+        muzzleMat.emissiveColor = new BABYLON.Color3(1, 0.9, 0.4);
+        muzzleMat.alpha = 0;
+        muzzle.material = muzzleMat;
+
+        const muzzleLight = new BABYLON.PointLight('muzzleLight', BABYLON.Vector3.Zero(), scene);
+        muzzleLight.parent = muzzle;
+        muzzleLight.diffuse = new BABYLON.Color3(1, 0.8, 0.3);
+        muzzleLight.intensity = 0;
+
+        // ---------- BOLTS ----------
+        const glow = new BABYLON.GlowLayer('glow', scene);
+        glow.intensity = 1.8;
+
+        const boltMat = new BABYLON.StandardMaterial('boltMat', scene);
+        boltMat.emissiveColor = new BABYLON.Color3(1, 0.15, 0.1);
+        boltMat.disableLighting = true;
+
+        const boltTemplate = BABYLON.MeshBuilder.CreateCylinder('boltTemplate', { height: 1.4, diameter: 0.06 }, scene);
+        boltTemplate.rotation.x = Math.PI / 2;
+        boltTemplate.bakeCurrentTransformIntoVertices();
+        boltTemplate.material = boltMat;
+        boltTemplate.isPickable = false;
+        boltTemplate.setEnabled(false);
+        let bolts = [];
+        const BOLT_SPEED = 120;
+
+        // ---------- SOUND ----------
+        let audioCtx = null;
+        function blasterSound() {
+            if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            const o = audioCtx.createOscillator(), g = audioCtx.createGain();
+            o.type = 'sawtooth';
+            o.frequency.setValueAtTime(900, audioCtx.currentTime);
+            o.frequency.exponentialRampToValueAtTime(120, audioCtx.currentTime + 0.18);
+            g.gain.setValueAtTime(0.25, audioCtx.currentTime);
+            g.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.2);
+            o.connect(g); g.connect(audioCtx.destination);
+            o.start(); o.stop(audioCtx.currentTime + 0.2);
+        }
+        function hitSound() {
+            if (!audioCtx) return;
+            const o = audioCtx.createOscillator(), g = audioCtx.createGain();
+            o.type = 'square';
+            o.frequency.setValueAtTime(200, audioCtx.currentTime);
+            o.frequency.exponentialRampToValueAtTime(50, audioCtx.currentTime + 0.25);
+            g.gain.setValueAtTime(0.3, audioCtx.currentTime);
+            g.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.3);
+            o.connect(g); g.connect(audioCtx.destination);
+            o.start(); o.stop(audioCtx.currentTime + 0.3);
+        }
+        function overheatSound() {
+            if (!audioCtx) return;
+            const o = audioCtx.createOscillator(), g = audioCtx.createGain();
+            o.type = 'triangle';
+            o.frequency.setValueAtTime(400, audioCtx.currentTime);
+            o.frequency.exponentialRampToValueAtTime(80, audioCtx.currentTime + 0.5);
+            g.gain.setValueAtTime(0.3, audioCtx.currentTime);
+            g.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.5);
+            o.connect(g); g.connect(audioCtx.destination);
+            o.start(); o.stop(audioCtx.currentTime + 0.5);
+        }
+
+        // ---------- STATE ----------
+        let score = 0, wave = 1, gameOver = false;
+
+        // Overheat system (Battlefront style)
+        let heat = 0;                 // 0..100
+        const HEAT_PER_SHOT = 9;
+        const COOL_RATE = 28;         // per second while not overheated
+        const OVERHEAT_COOL_RATE = 20; // slower recovery as penalty
+        let overheated = false;
+
+        let troopers = [];
+        let container = null;
+        let hasRunAnim = false;
+        const TROOPER_HEIGHT = 1.8;
+        let trooperScale = 1;
+
+        const scoreEl = document.getElementById('score');
+        const waveEl = document.getElementById('wave');
+        const heatBar = document.getElementById('heat-bar');
+        const overheatMsg = document.getElementById('overheat-msg');
+
+        // ---------- LOAD MODEL ----------
+        BABYLON.SceneLoader.LoadAssetContainer('./', 'stormtrooper.glb', scene, function(loaded) {
+            container = loaded;
+
+            let min = new BABYLON.Vector3(Infinity, Infinity, Infinity);
+            let max = new BABYLON.Vector3(-Infinity, -Infinity, -Infinity);
+            container.meshes.forEach(m => {
+                if (!m.getBoundingInfo) return;
+                const b = m.getBoundingInfo().boundingBox;
+                min = BABYLON.Vector3.Minimize(min, b.minimumWorld);
+                max = BABYLON.Vector3.Maximize(max, b.maximumWorld);
+            });
+            trooperScale = TROOPER_HEIGHT / (max.y - min.y);
+
+            hasRunAnim = container.animationGroups.length > 0;
+            spawnWave();
+        });
+
+        function spawnTrooper() {
+            const inst = container.instantiateModelsToScene(name => name, false);
+            const root = inst.rootNodes[0];
+            root.scaling.scaleInPlace(trooperScale);
+
+            const angle = Math.random() * Math.PI * 2;
+            const dist = 20 + Math.random() * 15;
+            root.position = new BABYLON.Vector3(
+                camera.position.x + Math.sin(angle) * dist, 0,
+                camera.position.z + Math.cos(angle) * dist
+            );
+
+            let anim = null;
+            if (inst.animationGroups.length > 0) {
+                anim = inst.animationGroups.find(a => /run|walk|move|sprint/i.test(a.name)) || inst.animationGroups[0];
+                anim.start(true);
+            }
+
+            const childMeshes = root.getChildMeshes();
+            childMeshes.forEach(m => { m.isPickable = true; });
+            const trooper = { root, meshes: childMeshes, alive: true, anim, bobPhase: Math.random() * Math.PI * 2 };
+            childMeshes.forEach(m => m.metadata = { trooper });
+            troopers.push(trooper);
+        }
+
+        function spawnWave() {
+            const count = Math.min(3 + wave - 1, 8);
+            for (let i = 0; i < count; i++) spawnTrooper();
+        }
+
+        // ---------- INPUT ----------
+        let isADS = false;
+        let velY = 0, grounded = true, crouching = false;
+        let sprinting = false;
+        let recoilT = 0;
+
+        canvas.addEventListener('mousedown', e => {
+            if (!document.pointerLockElement) return;
+            if (e.button === 2) { isADS = true; return; }
+            if (e.button !== 0) return;
+            if (gameOver || !container) return;
+            if (overheated) return;
+
+            // Fire
+            heat += HEAT_PER_SHOT;
+            if (heat >= 100) {
+                heat = 100;
+                overheated = true;
+                overheatMsg.style.display = 'block';
+                overheatSound();
+            }
+
+            blasterSound();
+
+            muzzleMat.alpha = 1;
+            muzzleLight.intensity = 3;
+            recoilT = 1;
+            setTimeout(() => { muzzleMat.alpha = 0; muzzleLight.intensity = 0; }, 60);
+
+            const bolt = boltTemplate.clone('bolt');
+            bolt.setEnabled(true);
+            bolt.position = muzzle.getAbsolutePosition().clone();
+            const direction = camera.getForwardRay(1).direction.normalize();
+            bolt.lookAt(bolt.position.add(direction));
+
+            const boltLight = new BABYLON.PointLight('boltLight', BABYLON.Vector3.Zero(), scene);
+            boltLight.parent = bolt;
+            boltLight.diffuse = new BABYLON.Color3(1, 0.25, 0.12);
+            boltLight.specular = new BABYLON.Color3(1, 0.3, 0.2);
+            boltLight.intensity = 6;
+            boltLight.range = 15;
+
+            bolts.push({ mesh: bolt, light: boltLight, direction, distanceLeft: 150 });
+        });
+        canvas.addEventListener('mouseup', e => {
+            if (e.button === 2) isADS = false;
+        });
+
+        document.addEventListener('keydown', e => {
+            if (e.code === 'ShiftLeft') sprinting = true;
+            if (e.code === 'Space' && grounded) {
+                velY = 5.5;
+                grounded = false;
+            }
+            if (e.code === 'KeyC') crouching = true;
+        });
+        document.addEventListener('keyup', e => {
+            if (e.code === 'KeyC') crouching = false;
+            if (e.code === 'ShiftLeft') sprinting = false;
+        });
+
+        // ---------- KILL ----------
+        function killTrooper(trooper, hitPoint) {
+            trooper.alive = false;
+            if (trooper.anim) trooper.anim.stop();
+            hitSound();
+            screenShake();
+            sparkExplosion(hitPoint || trooper.root.position);
+
+            score++;
+            scoreEl.textContent = score;
+            if (score % 5 === 0) { wave++; waveEl.textContent = wave; }
+
+            const root = trooper.root;
+            const tipAnim = new BABYLON.Animation('tip', 'rotation.x', 60,
+                BABYLON.Animation.ANIMATIONTYPE_FLOAT, BABYLON.Animation.ANIMATIONLOOPMODE_CONSTANT);
+            tipAnim.setKeys([{ frame: 0, value: root.rotation.x }, { frame: 30, value: root.rotation.x + Math.PI / 2 }]);
+            root.animations = [tipAnim];
+            scene.beginAnimation(root, 0, 30, false);
+
+            setTimeout(() => {
+                root.dispose();
+                troopers = troopers.filter(t => t !== trooper);
+                spawnTrooper();
+                if (score % 5 === 0) spawnTrooper();
+            }, 1000);
+        }
+
+        function impactFlash(position) {
+            const flash = new BABYLON.PointLight('flash', position.clone(), scene);
+            flash.diffuse = new BABYLON.Color3(1, 0.4, 0.15);
+            flash.specular = new BABYLON.Color3(1, 0.5, 0.3);
+            flash.intensity = 12;
+            flash.range = 16;
+            let life = 1;
+            const obs = scene.onBeforeRenderObservable.add(() => {
+                life -= engine.getDeltaTime() / 150;
+                flash.intensity = 12 * Math.max(0, life);
+                if (life <= 0) {
+                    scene.onBeforeRenderObservable.remove(obs);
+                    flash.dispose();
+                }
+            });
+        }
+
+        function sparkExplosion(position) {
+            const ps = new BABYLON.ParticleSystem('sparks', 150, scene);
+            ps.particleTexture = new BABYLON.Texture('https://assets.babylonjs.com/textures/flare.png', scene);
+            ps.emitter = position.clone();
+            ps.minEmitBox = new BABYLON.Vector3(-0.2, 0, -0.2);
+            ps.maxEmitBox = new BABYLON.Vector3(0.2, 1.5, 0.2);
+            ps.color1 = new BABYLON.Color4(1, 0.9, 0.3, 1);
+            ps.color2 = new BABYLON.Color4(1, 0.4, 0.1, 1);
+            ps.colorDead = new BABYLON.Color4(0.2, 0, 0, 0);
+            ps.minSize = 0.08; ps.maxSize = 0.4;
+            ps.minLifeTime = 0.2; ps.maxLifeTime = 0.6;
+            ps.emitRate = 1200;
+            ps.direction1 = new BABYLON.Vector3(-2, 2, -2);
+            ps.direction2 = new BABYLON.Vector3(2, 4, 2);
+            ps.gravity = new BABYLON.Vector3(0, -9.8, 0);
+            ps.start();
+            setTimeout(() => { ps.stop(); setTimeout(() => ps.dispose(), 800); }, 200);
+        }
+
+        let shakeT = 0;
+        function screenShake() { shakeT = 1; }
+        let bobT = 0;
+        const lastPos = camera.position.clone();
+
+        // ---------- GAME LOOP ----------
+        scene.onBeforeRenderObservable.add(() => {
+            const dt = engine.getDeltaTime() / 1000;
+
+            // Heat cooldown
+            if (heat > 0) {
+                heat -= (overheated ? OVERHEAT_COOL_RATE : COOL_RATE) * dt;
+                if (heat <= 0) {
+                    heat = 0;
+                    if (overheated) {
+                        overheated = false;
+                        overheatMsg.style.display = 'none';
+                    }
+                }
+            }
+            heatBar.style.width = heat + '%';
+
+            // Bolts
+            for (let i = bolts.length - 1; i >= 0; i--) {
+                const b = bolts[i];
+                const step = BOLT_SPEED * dt;
+                const ray = new BABYLON.Ray(b.mesh.position, b.direction, step + 0.6);
+                const hit = scene.pickWithRay(ray, m => m.isPickable && m.metadata && m.metadata.trooper);
+                if (hit && hit.hit && hit.pickedMesh.metadata) {
+                    const trooper = hit.pickedMesh.metadata.trooper;
+                    if (trooper.alive) killTrooper(trooper, hit.pickedPoint);
+                    impactFlash(b.mesh.position);
+                    b.light.dispose(); b.mesh.dispose(); bolts.splice(i, 1); continue;
+                }
+                b.mesh.position.addInPlace(b.direction.scale(step));
+                b.distanceLeft -= step;
+                if (b.distanceLeft <= 0) { b.light.dispose(); b.mesh.dispose(); bolts.splice(i, 1); }
+            }
+
+            // ADS
+            const targetFov = isADS ? ADS_FOV : BASE_FOV;
+            camera.fov += (targetFov - camera.fov) * Math.min(1, dt * 12);
+            const targetGun = isADS ? GUN_ADS : GUN_HIP;
+            gun.position = BABYLON.Vector3.Lerp(gun.position, targetGun, Math.min(1, dt * 12));
+
+            // Movement bob
+            const horizMoved = Math.hypot(camera.position.x - lastPos.x, camera.position.z - lastPos.z);
+            if (horizMoved > 0.001 && grounded) {
+                bobT += dt * (sprinting ? 13 : 8);
+                gun.position.y += Math.sin(bobT) * (sprinting ? 0.03 : 0.015);
+                gun.position.x += Math.cos(bobT * 0.5) * 0.01;
+                camera.position.y += Math.sin(bobT) * 0.015;
+            }
+            lastPos.set(camera.position.x, camera.position.y, camera.position.z);
+
+            // Recoil
+            if (recoilT > 0) {
+                recoilT = Math.max(0, recoilT - dt * 8);
+                gun.position.z -= recoilT * 0.15;
+            }
+
+            // Jump + crouch
+            const targetH = crouching ? CROUCH_H : STAND_H;
+            if (!grounded) {
+                velY -= 14 * dt;
+                camera.position.y += velY * dt;
+                if (camera.position.y <= targetH) {
+                    camera.position.y = targetH;
+                    velY = 0;
+                    grounded = true;
+                }
+            } else {
+                camera.position.y += (targetH - camera.position.y) * Math.min(1, dt * 10);
+            }
+            camera.speed = crouching ? 0.15 : (isADS ? 0.18 : (sprinting ? 0.6 : 0.35));
+
+            // Shake
+            if (shakeT > 0) {
+                shakeT = Math.max(0, shakeT - dt * 5);
+                camera.rotation.z = (Math.random() - 0.5) * 0.02 * shakeT;
+            } else {
+                camera.rotation.z = 0;
+            }
+
+            if (gameOver) return;
+
+            // Troopers advance
+            const speed = (0.8 + wave * 0.15) * dt;
+            troopers.forEach(t => {
+                if (!t.alive) return;
+                const toPlayer = camera.position.subtract(t.root.position);
+                toPlayer.y = 0;
+                const distance = toPlayer.length();
+                if (distance < 1.5) { endGame(); return; }
+                t.root.position.addInPlace(toPlayer.normalize().scale(speed));
+                t.root.lookAt(new BABYLON.Vector3(camera.position.x, 0, camera.position.z));
+                t.root.rotate(BABYLON.Axis.Y, -Math.PI / 2, BABYLON.Space.LOCAL);
+
+                if (!hasRunAnim) {
+                    t.bobPhase += dt * 10;
+                    t.root.position.y = Math.abs(Math.sin(t.bobPhase)) * 0.12;
+                    t.root.rotation.x = 0.15;
+                }
+            });
+        });
+
+        function endGame() {
+            gameOver = true;
+            document.exitPointerLock();
+            document.getElementById('final-score').textContent = score;
+            document.getElementById('gameover').style.display = 'flex';
+        }
+
+        engine.runRenderLoop(() => scene.render());
+        window.addEventListener('resize', () => engine.resize());
+    </script>
 </body>
 </html>
